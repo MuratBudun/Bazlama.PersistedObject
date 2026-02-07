@@ -15,6 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from persisted_object import Store, create_crud_router
 from src.database import get_db, create_tables
 from src.models import AppSettings, Category, Tag, User, Project, Event, ApiKey, BlogPost
+from src.hooks import (
+    CategoryHooks,
+    BlogPostHooks,
+    UserHooks,
+    ProjectHooks,
+    EventHooks,
+    TagHooks,
+)
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / ".env"
@@ -63,6 +71,7 @@ async def startup_event():
     print("   - Composite unique constraints")
     print("   - Optional JSON encryption (ApiKey model)")
     print("   - Table caching for performance")
+    print("   - CrudHooks: auto-slug, email normalization, reading time, etc.")
 
 
 # ==================== ROUTER FACTORY - THE MAGIC! ====================
@@ -84,7 +93,8 @@ category_router = create_crud_router(
     store=category_store,
     prefix="/api/categories",
     tags=["Categories"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=CategoryHooks(),
 )
 app.include_router(category_router)
 
@@ -94,7 +104,8 @@ tag_router = create_crud_router(
     store=tag_store,
     prefix="/api/tags",
     tags=["Tags"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=TagHooks(),
 )
 app.include_router(tag_router)
 
@@ -104,7 +115,8 @@ user_router = create_crud_router(
     store=user_store,
     prefix="/api/users",
     tags=["Users"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=UserHooks(),
 )
 app.include_router(user_router)
 
@@ -114,7 +126,8 @@ project_router = create_crud_router(
     store=project_store,
     prefix="/api/projects",
     tags=["Projects"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=ProjectHooks(),
 )
 app.include_router(project_router)
 
@@ -124,7 +137,8 @@ event_router = create_crud_router(
     store=event_store,
     prefix="/api/events",
     tags=["Events"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=EventHooks(),
 )
 app.include_router(event_router)
 
@@ -144,7 +158,8 @@ blogpost_router = create_crud_router(
     store=blogpost_store,
     prefix="/api/blogposts",
     tags=["Blog Posts"],
-    get_db=get_db
+    get_db=get_db,
+    hooks=BlogPostHooks(),
 )
 app.include_router(blogpost_router)
 
