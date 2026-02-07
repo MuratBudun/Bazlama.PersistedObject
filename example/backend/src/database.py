@@ -5,6 +5,8 @@ Simple SQLite setup with table creation using async support.
 """
 
 import asyncio
+import os
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -60,6 +62,8 @@ def create_tables_sync() -> None:
     Create all tables (sync version for scripts).
     """
     from . import models  # noqa: F401
+    # Ensure the db directory exists
+    Path("db").mkdir(parents=True, exist_ok=True)
     mapper_registry.metadata.create_all(sync_engine)
 
 
@@ -72,6 +76,9 @@ async def create_tables() -> None:
     """
     # Import models to ensure they're registered
     from . import models  # noqa: F401
+    
+    # Ensure the db directory exists
+    Path("db").mkdir(parents=True, exist_ok=True)
     
     # Create all tables
     async with engine.begin() as conn:

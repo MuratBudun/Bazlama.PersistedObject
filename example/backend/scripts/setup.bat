@@ -41,7 +41,8 @@ if errorlevel 1 (
 echo Project dependencies installed
 
 echo.
-echo Step 5: Creating database tables...
+echo Step 5: Creating database directory and tables...
+if not exist "db" mkdir db
 python -c "from src.database import create_tables_sync; create_tables_sync()"
 if errorlevel 1 (
     echo Error: Failed to create database tables
