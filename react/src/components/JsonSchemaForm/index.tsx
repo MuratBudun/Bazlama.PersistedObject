@@ -11,6 +11,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Stack, TextInput, Textarea, Checkbox, NumberInput, Button, Group, Text, ActionIcon, Box, Paper } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { useMediaQuery } from '@mantine/hooks';
 import { useUiComponents } from '../../context/UiComponentContext';
 
 export interface JsonSchemaFormProps {
@@ -42,6 +43,7 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
   const [errors, setErrors] = useState<any>({});
   const formRef = useRef<HTMLFormElement>(null);
   const { resolveComponent } = useUiComponents();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Expose submit method via ref
   useImperativeHandle(ref, () => ({
@@ -101,115 +103,72 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
   // Filter out null/undefined properties before mapping
   const validProperties = Object.entries(properties).filter(([_, prop]) => prop != null);
 
+  // Sort by ui_index if present (stable sort preserves original order for equal/missing values)
+  const sortedProperties = [...validProperties].sort((a, b) => {
+    const indexA = (a[1] as any)?.ui_index ?? Infinity;
+    const indexB = (b[1] as any)?.ui_index ?? Infinity;
+    return indexA - indexB;
+  });
+
+  // On mobile: all fields full width, no grid
+  // On desktop: group fields into rows based on ui_width (6-column grid)
+  const rows: { key: string; prop: any; width: number }[][] = [];
+  let currentRow: { key: string; prop: any; width: number }[] = [];
+  let currentRowWidth = 0;
+
+  for (const [key, prop] of sortedProperties) {
+    const width = isMobile ? 6 : Math.max(1, Math.min(6, (prop as any)?.ui_width ?? 6));
+
+    if (currentRowWidth + width > 6 && currentRow.length > 0) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentRowWidth = 0;
+    }
+    currentRow.push({ key, prop, width });
+    currentRowWidth += width;
+
+    if (currentRowWidth >= 6) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentRowWidth = 0;
+    }
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
   return (
     <form ref={formRef} onSubmit={handleSubmit}>
       <Stack>
-        {validProperties.map(([key, prop]: [string, any]) => {
-          if (!prop || typeof prop !== 'object') {
-            return null;
+        {rows.map((row, rowIndex) => {
+          // If single field with full width, render without grid wrapper
+          if (row.length === 1 && row[0].width === 6) {
+            const { key, prop } = row[0];
+            return renderField(key, prop, rowIndex);
           }
-          
-          const isRequired = required.includes(key);
-          const label = prop?.title || formatLabel(key);
-          const description = prop?.description;
-          const value = values?.[key];
-          const error = errors?.[key];
-          
-          // Detect field type
-          const type = detectFieldType(prop);
-          
-          // === UI Component Resolution ===
-          // Check for custom ui_component in schema (from json_schema_extra)
-          const uiComponentName = prop?.ui_component;
-          if (uiComponentName) {
-            const CustomComponent = resolveComponent(uiComponentName);
-            if (CustomComponent) {
-              return (
-                <CustomComponent
-                  key={key}
-                  value={value}
-                  onChange={(val: any) => handleChange(key, val)}
-                  label={label}
-                  description={description}
-                  disabled={readOnly}
-                  required={isRequired}
-                  error={error}
-                  schema={prop}
-                  uiProps={prop?.ui_props}
-                />
-              );
-            }
-            // If component not found in registry, fall through to default rendering
-          }
-          
-          // Handle arrays
-          if (type === 'array') {
-            return renderArrayField(key, prop, label, description, value, error, isRequired);
-          }
-          
-          // Handle objects
-          if (type === 'object') {
-            return renderObjectField(key, prop, label, description, value, error, isRequired);
-          }
-          
-          // Render appropriate input based on type
-          if (type === 'boolean') {
-            return (
-              <Checkbox
-                key={key}
-                label={label}
-                description={description}
-                checked={!!value}
-                onChange={(e) => handleChange(key, e.currentTarget.checked)}
-                disabled={readOnly}
-                error={error}
-              />
-            );
-          }
-          
-          if (type === 'number' || type === 'integer') {
-            return (
-              <NumberInput
-                key={key}
-                label={label}
-                description={description}
-                value={value || ''}
-                onChange={(val) => handleChange(key, val)}
-                disabled={readOnly}
-                required={isRequired}
-                error={error}
-              />
-            );
-          }
-          
-          if (type === 'textarea') {
-            return (
-              <Textarea
-                key={key}
-                label={label}
-                description={description}
-                value={value || ''}
-                onChange={(e) => handleChange(key, e.target.value)}
-                disabled={readOnly}
-                required={isRequired}
-                error={error}
-                rows={4}
-              />
-            );
-          }
-          
-          // Default to text input
+
           return (
-            <TextInput
-              key={key}
-              label={label}
-              description={description}
-              value={value || ''}
-              onChange={(e) => handleChange(key, e.target.value)}
-              disabled={readOnly}
-              required={isRequired}
-              error={error}
-            />
+            <div
+              key={`row-${rowIndex}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 'var(--mantine-spacing-md)',
+                alignItems: 'start',
+              }}
+            >
+              {row.map(({ key, prop, width }) => {
+                const isBooleanField = detectFieldType(prop) === 'boolean';
+                return (
+                  <div key={key} style={{
+                    gridColumn: `span ${width}`,
+                    ...(isBooleanField ? { alignSelf: 'center', paddingTop: 'var(--mantine-spacing-lg)' } : {})
+                  }}>
+                    {renderField(key, prop, rowIndex)}
+                  </div>
+                );
+              })}
+            </div>
           );
         })}
         
@@ -236,6 +195,114 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
       </Stack>
     </form>
   );
+
+  // Render a single field by key
+  function renderField(key: string, prop: any, rowIndex: number) {
+    if (!prop || typeof prop !== 'object') {
+      return null;
+    }
+
+    const isRequired = required.includes(key);
+    const label = prop?.title || formatLabel(key);
+    const description = prop?.description;
+    const value = values?.[key];
+    const error = errors?.[key];
+
+    // Detect field type
+    const type = detectFieldType(prop);
+
+    // === UI Component Resolution ===
+    const uiComponentName = prop?.ui_component;
+    if (uiComponentName) {
+      const CustomComponent = resolveComponent(uiComponentName);
+      if (CustomComponent) {
+        return (
+          <CustomComponent
+            key={key}
+            value={value}
+            onChange={(val: any) => handleChange(key, val)}
+            label={label}
+            description={description}
+            disabled={readOnly}
+            required={isRequired}
+            error={error}
+            schema={prop}
+            uiProps={prop?.ui_props}
+          />
+        );
+      }
+    }
+
+    // Handle arrays
+    if (type === 'array') {
+      return renderArrayField(key, prop, label, description, value, error, isRequired);
+    }
+
+    // Handle objects
+    if (type === 'object') {
+      return renderObjectField(key, prop, label, description, value, error, isRequired);
+    }
+
+    // Render appropriate input based on type
+    if (type === 'boolean') {
+      return (
+        <Checkbox
+          key={key}
+          label={label}
+          description={description}
+          checked={!!value}
+          onChange={(e) => handleChange(key, e.currentTarget.checked)}
+          disabled={readOnly}
+          error={error}
+        />
+      );
+    }
+
+    if (type === 'number' || type === 'integer') {
+      return (
+        <NumberInput
+          key={key}
+          label={label}
+          description={description}
+          value={value || ''}
+          onChange={(val) => handleChange(key, val)}
+          disabled={readOnly}
+          required={isRequired}
+          error={error}
+        />
+      );
+    }
+
+    if (type === 'textarea') {
+      return (
+        <Textarea
+          key={key}
+          label={label}
+          description={description}
+          value={value || ''}
+          onChange={(e) => handleChange(key, e.target.value)}
+          disabled={readOnly}
+          required={isRequired}
+          error={error}
+          rows={4}
+        />
+      );
+    }
+
+    // Default to text input
+    return (
+      <TextInput
+        key={key}
+        label={label}
+        description={description}
+        value={value || ''}
+        onChange={(e) => handleChange(key, e.target.value)}
+        disabled={readOnly}
+        required={isRequired}
+        error={error}
+      />
+    );
+  }
 
   // Render array field with add/remove functionality
   function renderArrayField(key: string, prop: any, label: string, description: string, value: any[], error: string, isRequired: boolean) {
@@ -414,9 +481,9 @@ function detectFieldType(property: any): string {
   if (property.type === 'array') return 'array';
   if (property.type === 'object') return 'object';
   
-  // Check for textarea hints
-  if (property.maxLength && property.maxLength > 200) return 'textarea';
-  if (property.description && property.description.length > 100) return 'textarea';
+  // Check for textarea hints (DescriptionField=800, ContentField=4000 → textarea)
+  // TitleField=400 stays as text input
+  if (property.maxLength && property.maxLength > 500) return 'textarea';
   
   // Check anyOf for nullable types
   if (Array.isArray(property.anyOf)) {

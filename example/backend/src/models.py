@@ -36,12 +36,13 @@ class AppSettings(PersistedObject):
     __primary_key__ = "key"
     __indexed_fields__ = ["key", "category"]
     
-    key: str = KeyField(description="Setting key (unique identifier)")
-    value: str = StandardField(description="Setting value")
-    category: str = KeyField(default="general", description="Setting category")
+    key: str = KeyField(description="Setting key (unique identifier)", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    value: str = StandardField(description="Setting value", json_schema_extra={"ui_width": 6, "ui_index": 2})
+    category: str = KeyField(default="general", description="Setting category", json_schema_extra={"ui_width": 3, "ui_index": 1})
     description: Optional[str] = DescriptionField(
         default=None,
-        description="Description of what this setting does"
+        description="Description of what this setting does",
+        json_schema_extra={"ui_index": 6}
     )
 
 
@@ -62,19 +63,21 @@ class Category(PersistedObject):
     __indexed_fields__ = ["id", "slug", "is_active", "sort_order"]
     __unique_fields__ = ["slug"]
     
-    id: str = KeyField(description="Category ID")
-    slug: str = KeyField(description="URL-friendly slug (unique)")
-    title: str = TitleField(description="Category display title")
+    id: str = KeyField(description="Category ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly slug (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Category display title", json_schema_extra={"ui_width": 2, "ui_index": 2})
     description: Optional[str] = DescriptionField(
         default=None,
-        description="Category description"
+        description="Category description",
+        json_schema_extra={"ui_index": 3}
     )
     icon: Optional[str] = KeyField(
         default="folder",
-        description="Icon name for UI"
+        description="Icon name for UI",
+        json_schema_extra={"ui_width": 2, "ui_index": 4}
     )
-    is_active: bool = True  # → Boolean column in DB
-    sort_order: int = 0  # → Integer column in DB
+    is_active: bool = StandardField(default=True, description="Whether category is active", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    sort_order: int = StandardField(default=0, description="Display sort order", json_schema_extra={"ui_width": 2, "ui_index": 6})
 
 
 @register_persisted_model
@@ -88,15 +91,16 @@ class Tag(PersistedObject):
     __primary_key__ = "name"
     __indexed_fields__ = ["name"]
     
-    name: str = KeyField(description="Tag name (unique)")
+    name: str = KeyField(description="Tag name (unique)", json_schema_extra={"ui_width": 3, "ui_index": 0})
     color: Optional[str] = KeyField(
         default="#3b82f6",
         description="Hex color code for UI",
-        json_schema_extra={"ui_component": "ColorPicker"}
+        json_schema_extra={"ui_component": "ColorPicker", "ui_width": 3, "ui_index": 1}
     )
     usage_count: int = StandardField(
         default=0,
-        description="Number of times this tag is used"
+        description="Number of times this tag is used",
+        json_schema_extra={"ui_width": 3, "ui_index": 2}
     )
 
 
@@ -120,15 +124,17 @@ class User(PersistedObject):
     __unique_fields__ = ["email", "username"]  # Both must be unique
     # __encrypt_json__ = True  # Uncomment to enable encryption (requires: pip install cryptography)
     
-    id: str = IDField(description="User ID (ULID)")
-    email: str = KeyField(description="Email address (unique)")
-    username: str = KeyField(description="Username (unique)")
-    full_name: str = TitleField(description="Full display name")
+    id: str = IDField(description="User ID (ULID)", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    email: str = KeyField(description="Email address (unique)", json_schema_extra={"ui_width": 2, "ui_index": 2})
+    username: str = KeyField(description="Username (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    full_name: str = TitleField(description="Full display name", json_schema_extra={"ui_width": 3, "ui_index": 3})
     role: str = KeyField(
         default="user",
         description="User role (admin, user, guest)",
         json_schema_extra={
             "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
             "ui_props": {
                 "options": [
                     {"value": "admin", "label": "Admin", "color": "red"},
@@ -138,33 +144,33 @@ class User(PersistedObject):
             }
         }
     )
-    is_active: bool = True  # → Boolean column
+    is_active: bool = StandardField(default=True, description="Whether user is active", json_schema_extra={"ui_width": 1, "ui_index": 5})
     
     # DateTime field - stored as DateTime column in DB
-    last_login: Optional[datetime] = None
+    last_login: Optional[datetime] = StandardField(default=None, description="Last login date and time", json_schema_extra={"ui_width": 3, "ui_index": 6})
     
     # Array fields - stored in json_data
     tags: List[str] = StandardField(
         default_factory=list,
         description="User tags for categorization",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 7}
     )
     permissions: List[str] = StandardField(
         default_factory=list,
         description="List of permissions granted to user",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 8}
     )
     favorite_categories: List[str] = StandardField(
         default_factory=list,
         description="User's favorite category IDs",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 9}
     )
     
     # Complex nested data - stored in json_data
     profile: Dict[str, Any] = StandardField(
         default_factory=dict,
         description="User profile data (avatar, bio, preferences, etc.)",
-        json_schema_extra={"ui_component": "JsonEditor"}
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 10}
     )
     settings: Dict[str, Any] = StandardField(
         default_factory=lambda: {
@@ -174,7 +180,7 @@ class User(PersistedObject):
             "email_updates": False
         },
         description="User preferences and settings",
-        json_schema_extra={"ui_component": "JsonEditor"}
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 11}
     )
 
 
@@ -196,18 +202,21 @@ class Project(PersistedObject):
     __indexed_fields__ = ["id", "slug", "status", "owner_id", "is_public", "member_count"]
     __unique_fields__ = ["slug"]
     
-    id: str = IDField(description="Project ID")
-    slug: str = KeyField(description="URL-friendly project slug")
-    title: str = TitleField(description="Project title")
+    id: str = IDField(description="Project ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly project slug", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Project title", json_schema_extra={"ui_width": 2, "ui_index": 2})
     description: Optional[str] = DescriptionField(
         default=None,
-        description="Project description"
+        description="Project description",
+        json_schema_extra={"ui_index": 3}
     )
     status: str = KeyField(
         default="draft",
         description="Project status (draft, active, completed, archived)",
         json_schema_extra={
             "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
             "ui_props": {
                 "options": [
                     {"value": "draft", "label": "Draft", "color": "gray"},
@@ -218,15 +227,15 @@ class Project(PersistedObject):
             }
         }
     )
-    owner_id: str = KeyField(description="ID of project owner")
-    is_public: bool = False  # → Boolean column
-    member_count: int = 0  # → Integer column
+    owner_id: str = KeyField(description="ID of project owner", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    is_public: bool = StandardField(default=False, description="Whether project is public", json_schema_extra={"ui_width": 1, "ui_index": 6})
+    member_count: int = StandardField(default=0, description="Number of members", json_schema_extra={"ui_width": 1, "ui_index": 7})
     
     # Array of simple strings
     tags: List[str] = StandardField(
         default_factory=list,
         description="Project tags for categorization",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_index": 8}
     )
     
     # Array of objects - each member has role and permissions
@@ -235,6 +244,7 @@ class Project(PersistedObject):
         description="Project members with their roles and permissions",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 9,
             "example": [
                 {"user_id": "user123", "role": "admin", "permissions": ["read", "write", "delete"]},
                 {"user_id": "user456", "role": "member", "permissions": ["read", "write"]}
@@ -248,6 +258,7 @@ class Project(PersistedObject):
         description="Project milestones with deadlines",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 10,
             "example": [
                 {"title": "MVP", "due_date": "2024-03-01", "completed": False},
                 {"title": "Beta Release", "due_date": "2024-06-01", "completed": False}
@@ -268,23 +279,25 @@ class Event(PersistedObject):
     __primary_key__ = "id"
     __indexed_fields__ = ["id", "event_date", "is_published", "category", "priority"]
     
-    id: str = IDField(description="Event ID")
-    title: str = TitleField(description="Event title")
+    id: str = IDField(description="Event ID", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    title: str = TitleField(description="Event title", json_schema_extra={"ui_width": 3, "ui_index": 1})
     description: Optional[str] = DescriptionField(
         default=None,
-        description="Event description"
+        description="Event description",
+        json_schema_extra={"ui_index": 2}
     )
-    category: str = KeyField(default="general", description="Event category")
+    category: str = KeyField(default="general", description="Event category", json_schema_extra={"ui_width": 2, "ui_index": 3})
     
     # DateTime field - stored as DateTime column for efficient queries
     event_date: datetime = StandardField(
         default_factory=datetime.now,
-        description="Event date and time"
+        description="Event date and time",
+        json_schema_extra={"ui_width": 2, "ui_index": 4}
     )
     
     # Boolean fields - stored as Boolean columns
-    is_published: bool = False
-    is_featured: bool = False
+    is_published: bool = StandardField(default=False, description="Whether event is published", json_schema_extra={"ui_width": 1, "ui_index": 5})
+    is_featured: bool = StandardField(default=False, description="Whether event is featured", json_schema_extra={"ui_width": 1, "ui_index": 6})
     
     # Integer field - stored as Integer column
     priority: int = StandardField(
@@ -292,6 +305,8 @@ class Event(PersistedObject):
         description="Priority level (0=low, 1=medium, 2=high)",
         json_schema_extra={
             "ui_component": "PriorityIndicator",
+            "ui_width": 3,
+            "ui_index": 7,
             "ui_props": {
                 "levels": [
                     {"value": 0, "label": "Low", "color": "green"},
@@ -308,6 +323,7 @@ class Event(PersistedObject):
         description="Event location (venue, address, coordinates)",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 8,
             "example": {
                 "venue": "Conference Center",
                 "address": "123 Main St",
@@ -321,7 +337,7 @@ class Event(PersistedObject):
     attendees: List[str] = StandardField(
         default_factory=list,
         description="List of attendee user IDs",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 9}
     )
 
 
@@ -350,39 +366,41 @@ class ApiKey(PersistedObject):
     __unique_fields__ = ["name"]
     __encrypt_json__ = True  # Enable encryption for sensitive data
     
-    id: str = IDField(description="API Key ID")
-    name: str = KeyField(description="API Key name (unique identifier)")
+    id: str = IDField(description="API Key ID", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    name: str = KeyField(description="API Key name (unique identifier)", json_schema_extra={"ui_width": 3, "ui_index": 1})
     description: Optional[str] = DescriptionField(
         default=None,
-        description="Description of API key purpose"
+        description="Description of API key purpose",
+        json_schema_extra={"ui_index": 2}
     )
     
     # Sensitive field - stored encrypted in json_data
     secure_value: str = PasswordField(
-        description="The actual API key value (encrypted)"
+        description="The actual API key value (encrypted)",
+        json_schema_extra={"ui_index": 3}
     )
     
     # Status and expiration
-    is_active: bool = True  # → Boolean column
-    expires_at: Optional[datetime] = None  # → DateTime column
+    is_active: bool = StandardField(default=True, description="Whether key is active", json_schema_extra={"ui_width": 2, "ui_index": 4})
+    expires_at: Optional[datetime] = StandardField(default=None, description="Expiration date", json_schema_extra={"ui_width": 2, "ui_index": 5})
     
     # Permission arrays - stored in encrypted json_data
     scopes: List[str] = StandardField(
         default_factory=list,
         description="API scopes/permissions (e.g., ['read', 'write', 'delete'])",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 6}
     )
     allowed_ips: List[str] = StandardField(
         default_factory=list,
         description="Whitelist of allowed IP addresses",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 7}
     )
     
     # Rate limiting configuration
     rate_limit: Dict[str, Any] = StandardField(
         default_factory=lambda: {"requests": 1000, "period": "hour"},
         description="Rate limiting settings",
-        json_schema_extra={"ui_component": "JsonEditor"}
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 8}
     )
     
     # Usage tracking - array of usage records
@@ -391,6 +409,7 @@ class ApiKey(PersistedObject):
         description="Recent usage history with timestamps",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 9,
             "example": [
                 {
                     "timestamp": "2024-01-15T10:30:00Z",
@@ -406,9 +425,10 @@ class ApiKey(PersistedObject):
     # Metadata
     created_by: Optional[str] = KeyField(
         default=None,
-        description="User ID who created this key"
+        description="User ID who created this key",
+        json_schema_extra={"ui_width": 2, "ui_index": 10}
     )
-    last_used_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = StandardField(default=None, description="Last used date", json_schema_extra={"ui_width": 2, "ui_index": 11})
 
 
 @register_persisted_model
@@ -429,12 +449,13 @@ class BlogPost(PersistedObject):
     __indexed_fields__ = ["id", "slug", "status", "published_at", "is_featured", "author_id"]
     __unique_fields__ = ["slug"]
     
-    id: str = IDField(description="Blog post ID")
-    slug: str = KeyField(description="URL-friendly slug (unique)")
-    title: str = TitleField(description="Blog post title")
+    id: str = IDField(description="Blog post ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly slug (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Blog post title", json_schema_extra={"ui_width": 2, "ui_index": 2})
     subtitle: Optional[str] = TitleField(
         default=None,
-        description="Blog post subtitle"
+        description="Blog post subtitle",
+        json_schema_extra={"ui_index": 3}
     )
     
     # Publishing workflow
@@ -443,6 +464,8 @@ class BlogPost(PersistedObject):
         description="Post status (draft, published, archived)",
         json_schema_extra={
             "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
             "ui_props": {
                 "options": [
                     {"value": "draft", "label": "Draft", "color": "gray"},
@@ -452,11 +475,11 @@ class BlogPost(PersistedObject):
             }
         }
     )
-    published_at: Optional[datetime] = None  # → DateTime column
-    is_featured: bool = False  # → Boolean column
+    published_at: Optional[datetime] = StandardField(default=None, description="Publish date", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    is_featured: bool = StandardField(default=False, description="Whether post is featured", json_schema_extra={"ui_width": 1, "ui_index": 6})
     
     # Author
-    author_id: str = KeyField(description="Author user ID")
+    author_id: str = KeyField(description="Author user ID", json_schema_extra={"ui_width": 1, "ui_index": 7})
     
     # Rich content blocks - array of different content types
     content_blocks: List[Dict[str, Any]] = StandardField(
@@ -464,6 +487,7 @@ class BlogPost(PersistedObject):
         description="Structured content blocks (text, image, code, quote, etc.)",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 8,
             "example": [
                 {
                     "type": "text",
@@ -488,23 +512,24 @@ class BlogPost(PersistedObject):
     meta_keywords: List[str] = StandardField(
         default_factory=list,
         description="SEO keywords array",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 9}
     )
     meta_description: Optional[str] = DescriptionField(
         default=None,
-        description="SEO meta description"
+        description="SEO meta description",
+        json_schema_extra={"ui_width": 3, "ui_index": 10}
     )
     
     # Categories and tags
     categories: List[str] = StandardField(
         default_factory=list,
         description="Category IDs",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 11}
     )
     tags: List[str] = StandardField(
         default_factory=list,
         description="Tag names",
-        json_schema_extra={"ui_component": "TagsInput"}
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 12}
     )
     
     # Multi-language support
@@ -513,6 +538,7 @@ class BlogPost(PersistedObject):
         description="Translations for different languages",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 13,
             "example": {
                 "es": {
                     "title": "Título en español",
@@ -537,7 +563,7 @@ class BlogPost(PersistedObject):
             "comments": 0
         },
         description="Social interaction statistics",
-        json_schema_extra={"ui_component": "JsonEditor"}
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 14}
     )
     
     # Comments - array of comment objects
@@ -546,6 +572,7 @@ class BlogPost(PersistedObject):
         description="Comments on this post",
         json_schema_extra={
             "ui_component": "JsonEditor",
+            "ui_index": 15,
             "example": [
                 {
                     "id": "comment123",
@@ -559,4 +586,4 @@ class BlogPost(PersistedObject):
     )
     
     # Reading time estimate
-    reading_time_minutes: int = 0  # → Integer column
+    reading_time_minutes: int = StandardField(default=0, description="Estimated reading time in minutes", json_schema_extra={"ui_width": 2, "ui_index": 16})
