@@ -288,11 +288,7 @@ Visit http://localhost:8000/docs to explore the auto-generated API!
 ### Screenshots
 
 <p align="center">
-  <img src="example/media/screen_01.png" alt="Screenshot 1" width="100%" />
-</p>
-
-<p align="center">
-  <img src="example/media/screen_02.png" alt="Screenshot 2" width="100%" />
+  <img src="example/media/screen_00.png" alt="Screenshot 0" width="100%" />
 </p>
 
 ## Links
