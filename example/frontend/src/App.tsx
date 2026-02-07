@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { AppShell, Burger, Group, Text, Button, Container, useMantineColorScheme, Divider } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconSettings, IconCategory, IconTags, IconSun, IconMoon, IconUsers, IconFolder, IconKey, IconNews } from '@tabler/icons-react'
+import { IconSettings, IconCategory, IconTags, IconSun, IconMoon, IconUsers, IconFolder, IconKey, IconNews, IconCalendarEvent } from '@tabler/icons-react'
 import SettingsPage from './pages/SettingsPage'
 import CategoriesPage from './pages/CategoriesPage'
 import TagsPage from './pages/TagsPage'
 import UsersPage from './pages/UsersPage'
 import ProjectsPage from './pages/ProjectsPage'
+import EventsPage from './pages/EventsPage'
 import ApiKeysPage from './pages/ApiKeysPage'
 import BlogPostsPage from './pages/BlogPostsPage'
 
@@ -103,6 +104,17 @@ function AppContent() {
         </Button>
         
         <Button
+          variant={isActive('/events') ? 'light' : 'subtle'}
+          leftSection={<IconCalendarEvent size={20} />}
+          onClick={() => navigate('/events')}
+          fullWidth
+          justify="flex-start"
+          mb="xs"
+        >
+          Events (DateTime)
+        </Button>
+        
+        <Button
           variant={isActive('/apikeys') ? 'light' : 'subtle'}
           leftSection={<IconKey size={20} />}
           onClick={() => navigate('/apikeys')}
@@ -124,7 +136,7 @@ function AppContent() {
         </Button>
 
         <Text size="xs" c="dimmed" mt="xl" px="sm">
-          7 different models showcasing arrays, secure storage, and complex data structures.
+          8 different models showcasing arrays, secure storage, and complex data structures.
           All managed with zero boilerplate!
         </Text>
       </AppShell.Navbar>
@@ -136,7 +148,7 @@ function AppContent() {
               <div style={{ padding: '40px', textAlign: 'center' }}>
                 <Text size="xl" fw={700} mb="md">Welcome to PersistedObject Example</Text>
                 <Text c="dimmed" mb="md">
-                  This showcase demonstrates 7 different models with various complexity levels:
+                  This showcase demonstrates 8 different models with various complexity levels:
                 </Text>
                 <Text c="dimmed" size="sm" ta="left" style={{ maxWidth: '600px', margin: '0 auto' }}>
                   • <strong>Basic Models:</strong> Simple key-value structures<br />
@@ -152,6 +164,7 @@ function AppContent() {
             <Route path="/tags/*" element={<TagsPage />} />
             <Route path="/users/*" element={<UsersPage />} />
             <Route path="/projects/*" element={<ProjectsPage />} />
+            <Route path="/events/*" element={<EventsPage />} />
             <Route path="/apikeys/*" element={<ApiKeysPage />} />
             <Route path="/blogposts/*" element={<BlogPostsPage />} />
           </Routes>

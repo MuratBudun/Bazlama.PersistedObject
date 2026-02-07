@@ -11,6 +11,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Stack, TextInput, Textarea, Checkbox, NumberInput, Button, Group, Text, ActionIcon, Box, Paper } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { useUiComponents } from '../../context/UiComponentContext';
 
 export interface JsonSchemaFormProps {
   schema: any;
@@ -40,6 +41,7 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
   const [values, setValues] = useState<any>(safeInitialValues);
   const [errors, setErrors] = useState<any>({});
   const formRef = useRef<HTMLFormElement>(null);
+  const { resolveComponent } = useUiComponents();
 
   // Expose submit method via ref
   useImperativeHandle(ref, () => ({
@@ -115,6 +117,30 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
           
           // Detect field type
           const type = detectFieldType(prop);
+          
+          // === UI Component Resolution ===
+          // Check for custom ui_component in schema (from json_schema_extra)
+          const uiComponentName = prop?.ui_component;
+          if (uiComponentName) {
+            const CustomComponent = resolveComponent(uiComponentName);
+            if (CustomComponent) {
+              return (
+                <CustomComponent
+                  key={key}
+                  value={value}
+                  onChange={(val: any) => handleChange(key, val)}
+                  label={label}
+                  description={description}
+                  disabled={readOnly}
+                  required={isRequired}
+                  error={error}
+                  schema={prop}
+                  uiProps={prop?.ui_props}
+                />
+              );
+            }
+            // If component not found in registry, fall through to default rendering
+          }
           
           // Handle arrays
           if (type === 'array') {

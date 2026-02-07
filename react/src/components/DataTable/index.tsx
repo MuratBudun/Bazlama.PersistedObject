@@ -44,6 +44,7 @@ import {
 } from '@tabler/icons-react';
 import classes from './index.module.css';
 import { useRef, useState } from 'react';
+import { useUiComponents } from '../../context/UiComponentContext';
 
 type RecordRow = Record<string, any>;
 
@@ -54,6 +55,8 @@ export type DataTableColumn = {
   type?: 'string' | 'boolean' | 'number';
   sortable?: boolean;
   render?: (value: any, row: RecordRow) => React.ReactNode;
+  /** JSON Schema property definition (used for ui_component cell rendering) */
+  schema?: any;
 };
 
 export type DataTableAction = {
@@ -150,6 +153,7 @@ export function DataTable({
   const [importLoading, setImportLoading] = useState(false);
   const searchTimeout = useRef<number>(0);
   const importResetRef = useRef<() => void>(null);
+  const { resolveCellRenderer } = useUiComponents();
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -188,9 +192,27 @@ export function DataTable({
   const renderColumnValue = (column: DataTableColumn, row: RecordRow) => {
     const value = row[column.key];
     
-    // Custom render function
+    // Custom render function (explicit per-column override)
     if (column.render) {
       return <Table.Td key={column.key}>{column.render(value, row)}</Table.Td>;
+    }
+
+    // UI Component cell renderer (from schema's ui_component)
+    const uiComponentName = column.schema?.ui_component;
+    if (uiComponentName) {
+      const CellRenderer = resolveCellRenderer(uiComponentName);
+      if (CellRenderer) {
+        return (
+          <Table.Td key={column.key}>
+            <CellRenderer
+              value={value}
+              row={row}
+              schema={column.schema}
+              uiProps={column.schema?.ui_props}
+            />
+          </Table.Td>
+        );
+      }
     }
 
     // Default rendering based on type

@@ -26,6 +26,26 @@ export type { PersistedObjectRoutesProps } from './components/PersistedObjectRou
 export { JsonSchemaForm } from './components/JsonSchemaForm';
 export type { JsonSchemaFormProps } from './components/JsonSchemaForm';
 
+// Export UI Component system (context + provider)
+export { UiComponentProvider, useUiComponents } from './context/UiComponentContext';
+export type {
+  UiComponentProps,
+  UiCellProps,
+  UiComponentMap,
+  UiCellRendererMap,
+  UiComponentProviderProps,
+} from './context/UiComponentContext';
+
+// Export built-in UI components
+export {
+  PasswordFieldComponent,
+  JsonEditorComponent,
+  ColorPickerComponent,
+  TagsInputComponent,
+  defaultUiComponents,
+  defaultCellRenderers,
+} from './ui-components';
+
 // Export API client
 export { CrudApiClient, configureApiClient } from './api/CrudApiClient';
 export type { ApiClientConfig } from './api/CrudApiClient';

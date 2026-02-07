@@ -20,9 +20,9 @@ from src.models import AppSettings, Category, Tag, User, Project, Event, ApiKey,
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
     load_dotenv(env_path)
-    print(f"✓ Loaded environment variables from {env_path}")
+    print(f"Loaded environment variables from {env_path}")
 else:
-    print(f"⚠ No .env file found at {env_path}, using system environment variables")
+    print(f"No .env file found at {env_path}, using system environment variables")
 
 # Create FastAPI app
 app = FastAPI(

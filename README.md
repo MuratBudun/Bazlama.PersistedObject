@@ -76,6 +76,7 @@ app.include_router(
 - **Database Optimizations** - MySQL (InnoDB), SQLite, PostgreSQL, MSSQL ready
 - **JSON Encryption Extension** - Optional Fernet encryption (requires `cryptography`)
 - **OpenAPI Integration** - Automatic schema generation
+- **Custom UI Components** - `json_schema_extra` → React component resolution with built-in components (ColorPicker, TagsInput, JsonEditor, PasswordField) and project-specific custom components via context registry
 
 ## Installation
 
@@ -193,6 +194,44 @@ class Secret(PersistedObject):
     credentials: dict = {}
 ```
 
+#### 7. Custom UI Components
+
+Control how fields render in the React frontend using `json_schema_extra`:
+
+```python
+@register_persisted_model
+class Tag(PersistedObject):
+    __table_name__ = "tags"
+    __primary_key__ = "name"
+    
+    name: str = KeyField()
+    
+    # Built-in component — renders a color picker in forms,
+    # a color swatch in tables
+    color: str = KeyField(
+        default="#3b82f6",
+        json_schema_extra={"ui_component": "ColorPicker"}
+    )
+
+    # Custom component with configuration via ui_props
+    status: str = KeyField(
+        default="active",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_props": {
+                "options": [
+                    {"value": "active", "label": "Active", "color": "green"},
+                    {"value": "archived", "label": "Archived", "color": "gray"},
+                ]
+            }
+        }
+    )
+```
+
+**Built-in components:** `PasswordField`, `ColorPicker`, `TagsInput`, `JsonEditor`
+
+See [React Package Docs](./react/README.md#custom-ui-components) for creating your own.
+
 ## Project Structure
 
 ```
@@ -214,15 +253,21 @@ bazlama-persisted-object/
 │   ├── src/
 │   │   ├── components/          # CrudPage, DataTable, JsonSchemaForm
 │   │   ├── hooks/               # useCrudList, useCrudMutation, etc.
+│   │   ├── context/             # UiComponentProvider
+│   │   ├── ui-components/       # Built-in: ColorPicker, TagsInput, etc.
 │   │   └── api/                 # CrudApiClient
 │   ├── package.json
 │   └── README.md
 └── example/
     ├── backend/                 # Working example (FastAPI)
     │   ├── main.py              # Router Factory usage
-    │   ├── models.py            # 6 example models
+    │   ├── models.py            # 8 example models with ui_component hints
     │   └── database.py          # SQLite setup
     ├── frontend/                # Working example (React)
+    │   ├── src/
+    │   │   ├── main.tsx         # UiComponentProvider + custom registrations
+    │   │   ├── components/      # StatusBadge, PriorityIndicator
+    │   │   └── pages/           # CRUD pages
     └── README.md
 ```
 

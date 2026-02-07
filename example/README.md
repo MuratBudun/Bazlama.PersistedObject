@@ -22,6 +22,7 @@
 
 ### Optional Extensions
 - **JSON Encryption** - Commented out in User model (requires `cryptography`)
+- **Custom UI Components** - StatusBadge, PriorityIndicator, ColorPicker, TagsInput, JsonEditor, PasswordField
 
 ## Quick Start
 
@@ -61,14 +62,18 @@ Frontend runs on **http://localhost:5173**
 example/
 ├── backend/
 │   ├── main.py              # FastAPI app with Router Factory
-│   ├── models.py            # 6 example models with advanced features
-│   ├── database.py          # SQLite setup
+│   ├── models.py            # 8 example models with ui_component hints
+│   ├── database.py          # SQLite setup (async + sync)
 │   ├── database.db          # SQLite database (auto-created)
-│   └── requirements.txt
+│   └── scripts/             # Setup & seed scripts
 └── frontend/
     ├── src/
     │   ├── App.tsx
-    │   └── pages/          # CRUD pages for each model
+    │   ├── main.tsx          # UiComponentProvider setup
+    │   ├── components/       # Custom UI components
+    │   │   ├── StatusBadge.tsx
+    │   │   └── PriorityIndicator.tsx
+    │   └── pages/            # CRUD pages for each model
     ├── package.json
     └── vite.config.ts
 ```
@@ -155,6 +160,114 @@ events = store.list(db,
     order_by="-event_date"
 )
 ```
+
+## Custom UI Components
+
+This example project demonstrates the full custom UI component system. Backend models use `json_schema_extra` to tell the frontend which React component to render for each field.
+
+### Built-in Components Used
+
+These come with the `@persisted-object/react` package:
+
+| Component | Models Using It | Purpose |
+|-----------|----------------|---------|
+| `ColorPicker` | Tag (color) | Color swatch picker |
+| `TagsInput` | User (tags, permissions), Project (tags), Event (attendees), BlogPost (tags, categories, meta_keywords), ApiKey (scopes, allowed_ips) | String array chips |
+| `JsonEditor` | User (profile, settings), Project (members, milestones), Event (location), BlogPost (content_blocks, translations, social_stats, comments), ApiKey (rate_limit, usage_history) | JSON editor with validation |
+| `PasswordField` | ApiKey (secure_value) | Masked password input |
+
+### Project-Specific Custom Components
+
+These are defined in `frontend/src/components/` and show how to create your own:
+
+#### StatusBadge
+
+A Select dropdown in forms + colored Badge in tables. Used for status/role fields.
+
+```python
+# Backend (models.py)
+role: str = KeyField(
+    default="user",
+    json_schema_extra={
+        "ui_component": "StatusBadge",
+        "ui_props": {
+            "options": [
+                {"value": "admin", "label": "Admin", "color": "red"},
+                {"value": "user", "label": "User", "color": "blue"},
+                {"value": "guest", "label": "Guest", "color": "gray"},
+            ]
+        }
+    }
+)
+```
+
+**Used in:** User (role), Project (status), BlogPost (status)
+
+#### PriorityIndicator
+
+A Select dropdown with icons in forms + colored pill with arrow icon in tables.
+
+```python
+# Backend (models.py)
+priority: int = StandardField(
+    default=0,
+    json_schema_extra={
+        "ui_component": "PriorityIndicator",
+        "ui_props": {
+            "levels": [
+                {"value": 0, "label": "Low", "color": "green"},
+                {"value": 1, "label": "Medium", "color": "yellow"},
+                {"value": 2, "label": "High", "color": "red"},
+            ]
+        }
+    }
+)
+```
+
+**Used in:** Event (priority)
+
+### Registering Custom Components
+
+Custom components are registered in `main.tsx` via `UiComponentProvider`:
+
+```tsx
+import { UiComponentProvider, defaultUiComponents, defaultCellRenderers } from '@persisted-object/react';
+import { StatusBadgeField, StatusBadgeCell } from './components/StatusBadge';
+import { PriorityIndicatorField, PriorityIndicatorCell } from './components/PriorityIndicator';
+
+<UiComponentProvider
+  components={{
+    ...defaultUiComponents,              // built-in: ColorPicker, TagsInput, etc.
+    'StatusBadge': StatusBadgeField,      // project-specific
+    'PriorityIndicator': PriorityIndicatorField,
+  }}
+  cellRenderers={{
+    ...defaultCellRenderers,             // built-in cell renderers
+    'StatusBadge': StatusBadgeCell,
+    'PriorityIndicator': PriorityIndicatorCell,
+  }}
+>
+  <App />
+</UiComponentProvider>
+```
+
+### How It Works
+
+```
+Backend Model                    JSON Schema              React
+──────────────                   ───────────              ─────
+json_schema_extra={         →    "ui_component":      →   UiComponentProvider
+  "ui_component": "X",          "StatusBadge",           resolves "X" →
+  "ui_props": {...}             "ui_props": {...}        renders component
+}
+```
+
+1. Pydantic serializes `json_schema_extra` into the JSON Schema
+2. `GET /api/users/schema` returns schema with `ui_component` hints
+3. `JsonSchemaForm` checks each property for `ui_component`
+4. If found, looks up the component in the registry via `useUiComponents()`
+5. Renders the custom component instead of the default field type
+6. Same flow for `DataTable` cell rendering
 
 ## Router Factory Power
 

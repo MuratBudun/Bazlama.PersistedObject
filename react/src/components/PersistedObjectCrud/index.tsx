@@ -576,6 +576,7 @@ function buildColumns(
         label: property?.title || formatLabel(key),
         type: detectType(property),
         sortable: sortableColumns ? sortableColumns.includes(key) : true,
+        schema: property,
         render: columnRender ? (value: any, row: any) => columnRender(key, value, row) : undefined,
       };
     });

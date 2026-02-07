@@ -1,8 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MantineProvider, createTheme, MantineColorsTuple } from '@mantine/core'
+import { UiComponentProvider, defaultUiComponents, defaultCellRenderers } from '@persisted-object/react'
 import '@mantine/core/styles.css'
 import App from './App.tsx'
+
+// Import project-specific custom components
+import { StatusBadgeField, StatusBadgeCell } from './components/StatusBadge'
+import { PriorityIndicatorField, PriorityIndicatorCell } from './components/PriorityIndicator'
 
 const myColor: MantineColorsTuple = [
   '#fff4e1',
@@ -28,7 +33,22 @@ const theme = createTheme({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MantineProvider theme={theme}>
-      <App />
+      <UiComponentProvider
+        components={{
+          ...defaultUiComponents,
+          // Project-specific custom components
+          'StatusBadge': StatusBadgeField,
+          'PriorityIndicator': PriorityIndicatorField,
+        }}
+        cellRenderers={{
+          ...defaultCellRenderers,
+          // Project-specific cell renderers
+          'StatusBadge': StatusBadgeCell,
+          'PriorityIndicator': PriorityIndicatorCell,
+        }}
+      >
+        <App />
+      </UiComponentProvider>
     </MantineProvider>
   </StrictMode>,
 )

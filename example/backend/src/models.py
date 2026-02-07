@@ -19,6 +19,7 @@ from persisted_object import (
     DescriptionField,
     StandardField,
     IDField,
+    PasswordField,
 )
 
 
@@ -90,7 +91,8 @@ class Tag(PersistedObject):
     name: str = KeyField(description="Tag name (unique)")
     color: Optional[str] = KeyField(
         default="#3b82f6",
-        description="Hex color code for UI"
+        description="Hex color code for UI",
+        json_schema_extra={"ui_component": "ColorPicker"}
     )
     usage_count: int = StandardField(
         default=0,
@@ -122,7 +124,20 @@ class User(PersistedObject):
     email: str = KeyField(description="Email address (unique)")
     username: str = KeyField(description="Username (unique)")
     full_name: str = TitleField(description="Full display name")
-    role: str = KeyField(default="user", description="User role (admin, user, guest)")
+    role: str = KeyField(
+        default="user",
+        description="User role (admin, user, guest)",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_props": {
+                "options": [
+                    {"value": "admin", "label": "Admin", "color": "red"},
+                    {"value": "user", "label": "User", "color": "blue"},
+                    {"value": "guest", "label": "Guest", "color": "gray"}
+                ]
+            }
+        }
+    )
     is_active: bool = True  # → Boolean column
     
     # DateTime field - stored as DateTime column in DB
@@ -131,21 +146,25 @@ class User(PersistedObject):
     # Array fields - stored in json_data
     tags: List[str] = StandardField(
         default_factory=list,
-        description="User tags for categorization"
+        description="User tags for categorization",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     permissions: List[str] = StandardField(
         default_factory=list,
-        description="List of permissions granted to user"
+        description="List of permissions granted to user",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     favorite_categories: List[str] = StandardField(
         default_factory=list,
-        description="User's favorite category IDs"
+        description="User's favorite category IDs",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     
     # Complex nested data - stored in json_data
     profile: Dict[str, Any] = StandardField(
         default_factory=dict,
-        description="User profile data (avatar, bio, preferences, etc.)"
+        description="User profile data (avatar, bio, preferences, etc.)",
+        json_schema_extra={"ui_component": "JsonEditor"}
     )
     settings: Dict[str, Any] = StandardField(
         default_factory=lambda: {
@@ -154,7 +173,8 @@ class User(PersistedObject):
             "notifications": True,
             "email_updates": False
         },
-        description="User preferences and settings"
+        description="User preferences and settings",
+        json_schema_extra={"ui_component": "JsonEditor"}
     )
 
 
@@ -185,7 +205,18 @@ class Project(PersistedObject):
     )
     status: str = KeyField(
         default="draft",
-        description="Project status (draft, active, completed, archived)"
+        description="Project status (draft, active, completed, archived)",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_props": {
+                "options": [
+                    {"value": "draft", "label": "Draft", "color": "gray"},
+                    {"value": "active", "label": "Active", "color": "green"},
+                    {"value": "completed", "label": "Completed", "color": "blue"},
+                    {"value": "archived", "label": "Archived", "color": "orange"}
+                ]
+            }
+        }
     )
     owner_id: str = KeyField(description="ID of project owner")
     is_public: bool = False  # → Boolean column
@@ -194,7 +225,8 @@ class Project(PersistedObject):
     # Array of simple strings
     tags: List[str] = StandardField(
         default_factory=list,
-        description="Project tags for categorization"
+        description="Project tags for categorization",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     
     # Array of objects - each member has role and permissions
@@ -202,6 +234,7 @@ class Project(PersistedObject):
         default_factory=list,
         description="Project members with their roles and permissions",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": [
                 {"user_id": "user123", "role": "admin", "permissions": ["read", "write", "delete"]},
                 {"user_id": "user456", "role": "member", "permissions": ["read", "write"]}
@@ -214,6 +247,7 @@ class Project(PersistedObject):
         default_factory=list,
         description="Project milestones with deadlines",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": [
                 {"title": "MVP", "due_date": "2024-03-01", "completed": False},
                 {"title": "Beta Release", "due_date": "2024-06-01", "completed": False}
@@ -253,13 +287,27 @@ class Event(PersistedObject):
     is_featured: bool = False
     
     # Integer field - stored as Integer column
-    priority: int = 0  # 0=low, 1=medium, 2=high
+    priority: int = StandardField(
+        default=0,
+        description="Priority level (0=low, 1=medium, 2=high)",
+        json_schema_extra={
+            "ui_component": "PriorityIndicator",
+            "ui_props": {
+                "levels": [
+                    {"value": 0, "label": "Low", "color": "green"},
+                    {"value": 1, "label": "Medium", "color": "yellow"},
+                    {"value": 2, "label": "High", "color": "red"}
+                ]
+            }
+        }
+    )
     
     # Location data
     location: Dict[str, Any] = StandardField(
         default_factory=dict,
         description="Event location (venue, address, coordinates)",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": {
                 "venue": "Conference Center",
                 "address": "123 Main St",
@@ -272,7 +320,8 @@ class Event(PersistedObject):
     # Attendees
     attendees: List[str] = StandardField(
         default_factory=list,
-        description="List of attendee user IDs"
+        description="List of attendee user IDs",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
 
 
@@ -309,7 +358,7 @@ class ApiKey(PersistedObject):
     )
     
     # Sensitive field - stored encrypted in json_data
-    secure_value: str = StandardField(
+    secure_value: str = PasswordField(
         description="The actual API key value (encrypted)"
     )
     
@@ -320,17 +369,20 @@ class ApiKey(PersistedObject):
     # Permission arrays - stored in encrypted json_data
     scopes: List[str] = StandardField(
         default_factory=list,
-        description="API scopes/permissions (e.g., ['read', 'write', 'delete'])"
+        description="API scopes/permissions (e.g., ['read', 'write', 'delete'])",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     allowed_ips: List[str] = StandardField(
         default_factory=list,
-        description="Whitelist of allowed IP addresses"
+        description="Whitelist of allowed IP addresses",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     
     # Rate limiting configuration
     rate_limit: Dict[str, Any] = StandardField(
         default_factory=lambda: {"requests": 1000, "period": "hour"},
-        description="Rate limiting settings"
+        description="Rate limiting settings",
+        json_schema_extra={"ui_component": "JsonEditor"}
     )
     
     # Usage tracking - array of usage records
@@ -338,6 +390,7 @@ class ApiKey(PersistedObject):
         default_factory=list,
         description="Recent usage history with timestamps",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": [
                 {
                     "timestamp": "2024-01-15T10:30:00Z",
@@ -387,7 +440,17 @@ class BlogPost(PersistedObject):
     # Publishing workflow
     status: str = KeyField(
         default="draft",
-        description="Post status (draft, published, archived)"
+        description="Post status (draft, published, archived)",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_props": {
+                "options": [
+                    {"value": "draft", "label": "Draft", "color": "gray"},
+                    {"value": "published", "label": "Published", "color": "green"},
+                    {"value": "archived", "label": "Archived", "color": "orange"}
+                ]
+            }
+        }
     )
     published_at: Optional[datetime] = None  # → DateTime column
     is_featured: bool = False  # → Boolean column
@@ -400,6 +463,7 @@ class BlogPost(PersistedObject):
         default_factory=list,
         description="Structured content blocks (text, image, code, quote, etc.)",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": [
                 {
                     "type": "text",
@@ -423,7 +487,8 @@ class BlogPost(PersistedObject):
     # SEO
     meta_keywords: List[str] = StandardField(
         default_factory=list,
-        description="SEO keywords array"
+        description="SEO keywords array",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     meta_description: Optional[str] = DescriptionField(
         default=None,
@@ -433,11 +498,13 @@ class BlogPost(PersistedObject):
     # Categories and tags
     categories: List[str] = StandardField(
         default_factory=list,
-        description="Category IDs"
+        description="Category IDs",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     tags: List[str] = StandardField(
         default_factory=list,
-        description="Tag names"
+        description="Tag names",
+        json_schema_extra={"ui_component": "TagsInput"}
     )
     
     # Multi-language support
@@ -445,6 +512,7 @@ class BlogPost(PersistedObject):
         default_factory=dict,
         description="Translations for different languages",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": {
                 "es": {
                     "title": "Título en español",
@@ -468,7 +536,8 @@ class BlogPost(PersistedObject):
             "shares": 0,
             "comments": 0
         },
-        description="Social interaction statistics"
+        description="Social interaction statistics",
+        json_schema_extra={"ui_component": "JsonEditor"}
     )
     
     # Comments - array of comment objects
@@ -476,6 +545,7 @@ class BlogPost(PersistedObject):
         default_factory=list,
         description="Comments on this post",
         json_schema_extra={
+            "ui_component": "JsonEditor",
             "example": [
                 {
                     "id": "comment123",
