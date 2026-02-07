@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bazlama-persisted-object"
+version = "0.1.0"
+description = "Zero-boilerplate CRUD for FastAPI with automatic API generation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Murat Büdün", email = "muratbudun@gmail.com"}
+]
+keywords = ["fastapi", "crud", "pydantic", "sqlalchemy", "api", "object-store", "persistence", "encryption"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+encryption = [
+    "cryptography>=41.0.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "mypy>=1.8.0",
+    "ruff>=0.2.0",
+]
+all = [
+    "bazlama-persisted-object[encryption,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/qmex/bazlama-persisted-object"
+Documentation = "https://github.com/qmex/bazlama-persisted-object#readme"
+Repository = "https://github.com/qmex/bazlama-persisted-object"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = "persisted_object"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_mode = "auto"

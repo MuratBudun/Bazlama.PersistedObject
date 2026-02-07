@@ -1,0 +1,31 @@
+[project]
+name = "persisted-object-example"
+version = "0.2.0"
+description = "Example FastAPI application using PersistedObject"
+readme = "README.md"
+requires-python = ">=3.9.2"
+dependencies = [
+    "fastapi==0.115.0",
+    "pydantic==2.10.0",
+    "sqlalchemy==2.0.36",
+    "aiosqlite==0.20.0",
+    "uvicorn[standard]==0.32.0",
+    "python-dotenv==1.0.0",
+    "cryptography (>=46.0.4,<47.0.0)",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

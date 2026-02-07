@@ -1,0 +1,23 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.columnHeader {
+  cursor: pointer;
+  user-select: none;
+}
+
+.columnHeader:hover {
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
+}
+
+.columnHeaderInner {
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.searchBar {
+  min-width: 250px;
+}
