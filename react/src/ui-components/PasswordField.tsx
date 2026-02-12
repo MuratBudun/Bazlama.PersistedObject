@@ -17,6 +17,7 @@ export function PasswordFieldComponent({
   label,
   description,
   disabled,
+  readOnly,
   required,
   error,
 }: UiComponentProps) {
@@ -27,6 +28,8 @@ export function PasswordFieldComponent({
       value={value || ''}
       onChange={(e) => onChange(e.currentTarget.value)}
       disabled={disabled}
+      readOnly={readOnly}
+      variant={readOnly ? 'filled' : 'default'}
       required={required}
       error={error}
     />

@@ -21,6 +21,7 @@ export function ColorPickerComponent({
   label,
   description,
   disabled,
+  readOnly,
   required,
   error,
   uiProps,
@@ -39,6 +40,8 @@ export function ColorPickerComponent({
       value={value || ''}
       onChange={onChange}
       disabled={disabled}
+      readOnly={readOnly}
+      variant={readOnly ? 'filled' : 'default'}
       required={required}
       error={error}
       format={format}

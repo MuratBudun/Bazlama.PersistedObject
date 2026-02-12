@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PersistedObject Example</title>
     <meta name="color-scheme" content="light dark" />
+    <!-- paste this BEFORE any scripts -->
+    <script
+      crossOrigin="anonymous"
+      src="//unpkg.com/react-scan/dist/auto.global.js"
+    ></script> 
     <script>
       // Initialize color scheme before render to prevent flash
       const colorScheme = localStorage.getItem('mantine-color-scheme-value') || 'auto';

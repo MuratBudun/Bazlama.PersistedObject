@@ -21,6 +21,7 @@ export function TagsInputComponent({
   label,
   description,
   disabled,
+  readOnly,
   required,
   error,
   uiProps,
@@ -37,13 +38,15 @@ export function TagsInputComponent({
       value={Array.isArray(value) ? value : []}
       onChange={onChange}
       disabled={disabled}
+      readOnly={readOnly}
+      variant={readOnly ? 'filled' : 'default'}
       required={required}
       error={error}
-      placeholder={placeholder}
+      placeholder={readOnly ? undefined : placeholder}
       maxTags={maxTags}
       allowDuplicates={allowDuplicates}
       splitChars={splitChars}
-      clearable
+      clearable={!readOnly}
     />
   );
 }

@@ -42,8 +42,10 @@ export interface UiComponentProps {
   label: string;
   /** Field description from schema */
   description?: string;
-  /** Whether the field is disabled (readOnly mode) */
+  /** Whether the field is disabled */
   disabled?: boolean;
+  /** Whether the field is in read-only mode (visible but not editable) */
+  readOnly?: boolean;
   /** Whether the field is required */
   required?: boolean;
   /** Validation error message */

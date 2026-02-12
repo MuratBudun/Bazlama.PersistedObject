@@ -24,6 +24,7 @@ export function JsonEditorComponent({
   label,
   description,
   disabled,
+  readOnly,
   required,
   error,
   uiProps,
@@ -71,7 +72,7 @@ export function JsonEditorComponent({
           {label} {required && <Text component="span" c="red">*</Text>}
         </Text>
         <Group gap={4}>
-          {!disabled && (
+          {!disabled && !readOnly && (
             <Tooltip label="Format JSON">
               <ActionIcon 
                 size="xs" 
@@ -99,6 +100,8 @@ export function JsonEditorComponent({
         value={text}
         onChange={(e) => handleChange(e.currentTarget.value)}
         disabled={disabled}
+        readOnly={readOnly}
+        variant={readOnly ? 'filled' : 'default'}
         required={required}
         error={error || (!isValid ? 'Invalid JSON' : undefined)}
         rows={rows}

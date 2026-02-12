@@ -5,7 +5,7 @@
  * with dynamic form generation from JSON Schema.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   Container, 
   Title, 
@@ -72,6 +72,11 @@ export function CrudPage({
     setFormData({ ...item });
     setModalOpened(true);
   };
+
+  // PERFORMANCE: Functional state updater - doesn't close over formData
+  const handleFormChange = useCallback((key: string, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -195,7 +200,7 @@ export function CrudPage({
               key={col.key}
               label={col.label}
               value={formData[col.key] || ''}
-              onChange={(e) => setFormData({ ...formData, [col.key]: e.target.value })}
+              onChange={(e) => handleFormChange(col.key, e.target.value)}
               disabled={col.key === primaryKey && !!editingItem}
             />
           ))}

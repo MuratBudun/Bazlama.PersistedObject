@@ -43,7 +43,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import classes from './index.module.css';
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback, memo } from 'react';
 import { useUiComponents } from '../../context/UiComponentContext';
 
 type RecordRow = Record<string, any>;
@@ -157,13 +157,13 @@ export function DataTable({
 
   const totalPages = Math.ceil(total / pageSize);
 
-  const handleSort = (columnKey: string) => {
+  const handleSort = useCallback((columnKey: string) => {
     if (!onSort) return;
     
     const isAsc = sortBy === columnKey && sortDirection === 'asc';
     const newDirection = isAsc ? 'desc' : 'asc';
     onSort(columnKey, newDirection);
-  };
+  }, [onSort, sortBy, sortDirection]);
 
   const renderSortIcon = (columnKey: string) => {
     if (sortBy !== columnKey) return null;
@@ -241,11 +241,11 @@ export function DataTable({
     return <Table.Td key={column.key}>{rendered}</Table.Td>;
   };
 
-  const handleDeleteClick = (row: RecordRow) => {
+  const handleDeleteClick = useCallback((row: RecordRow) => {
     setDeleteConfirm(row);
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!deleteConfirm || !onDelete) return;
     
     setDeleteLoading(deleteConfirm[keyColumn]);
@@ -255,9 +255,9 @@ export function DataTable({
       setDeleteLoading(null);
       setDeleteConfirm(null);
     }
-  };
+  }, [deleteConfirm, onDelete]);
 
-  const handleExport = async (row: RecordRow) => {
+  const handleExport = useCallback(async (row: RecordRow) => {
     if (!onExport) return;
     
     setExportLoading(row[keyColumn]);
@@ -269,9 +269,9 @@ export function DataTable({
     } finally {
       setExportLoading(null);
     }
-  };
+  }, [onExport, keyColumn]);
 
-  const handleExportAll = async () => {
+  const handleExportAll = useCallback(async () => {
     if (!onExportAll) return;
     
     setExportAllLoading(true);
@@ -283,9 +283,9 @@ export function DataTable({
     } finally {
       setExportAllLoading(false);
     }
-  };
+  }, [onExportAll]);
 
-  const handleImport = async (file: File | null) => {
+  const handleImport = useCallback(async (file: File | null) => {
     if (!file || !onImport) return;
 
     const reader = new FileReader();
@@ -306,21 +306,21 @@ export function DataTable({
     };
 
     reader.readAsText(file);
-  };
+  }, [onImport]);
 
-  const handleSearchClear = () => {
+  const handleSearchClear = useCallback(() => {
     setInternalSearch('');
     if (onSearch) {
       onSearch('');
     }
-  };
+  }, [onSearch]);
 
-  const handleSearchImmediate = () => {
+  const handleSearchImmediate = useCallback(() => {
     clearTimeout(searchTimeout.current);
     if (onSearch) {
       onSearch(internalSearch);
     }
-  };
+  }, [onSearch, internalSearch]);
 
   return (
     <div className={classes.root}>
