@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   AppShell, Burger, Group, Text, Button, Container,
   useMantineColorScheme, Divider, Stack, Loader, Center,
@@ -32,10 +32,10 @@ function HomePage() {
           <Title order={4}>How it works</Title>
         </Group>
         <Stack gap="xs">
-          <Text size="sm">1. Click <Badge variant="light">+ New Model</Badge> in the sidebar to define a new model</Text>
+          <Text component="span" size="sm" style={{ display: 'block' }}>1. Click <Badge variant="light">+ New Model</Badge> in the sidebar to define a new model</Text>
           <Text size="sm">2. Add fields -- simple types (String, Integer, Boolean) become DB columns when indexed</Text>
           <Text size="sm">3. Add complex fields -- arrays, nested objects are stored in JSON automatically</Text>
-          <Text size="sm">4. Click <Badge variant="light">Create Model</Badge> to create it</Text>
+          <Text component="span" size="sm" style={{ display: 'block' }}>4. Click <Badge variant="light">Create Model</Badge> to create it</Text>
           <Text size="sm">5. The model appears in the sidebar -- click it to manage its data with full CRUD</Text>
         </Stack>
       </Card>
@@ -60,7 +60,22 @@ function HomePage() {
   )
 }
 
-function DynamicCrudPage({ model }: { model: DynamicModel }) {
+function DynamicCrudPage({ models, loading }: { models: DynamicModel[], loading: boolean }) {
+  const { modelName } = useParams<{ modelName: string }>()
+  const model = models.find(m => m.name === modelName)
+
+  if (loading) {
+    return <Center py="xl"><Loader size="lg" /></Center>
+  }
+
+  if (!model) {
+    return (
+      <Alert color="red" title="Model not found" mt="md">
+        <Text size="sm">Model "{modelName}" is not registered. Create it first from the sidebar.</Text>
+      </Alert>
+    )
+  }
+
   return (
     <PersistedObjectRoutes
       api={model.endpoint}
@@ -191,13 +206,10 @@ function AppContent() {
                 />
               }
             />
-            {models.map(model => (
-              <Route
-                key={model.name}
-                path={`/model/${model.name}/*`}
-                element={<DynamicCrudPage model={model} />}
-              />
-            ))}
+            <Route
+              path="/model/:modelName/*"
+              element={<DynamicCrudPage models={models} loading={loading} />}
+            />
           </Routes>
         </Container>
       </AppShell.Main>

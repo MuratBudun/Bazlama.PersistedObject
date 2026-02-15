@@ -404,7 +404,29 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
   loading = false,
   hideButtons = false,
 }, ref) => {
-  const safeInitialValues = initialValues || {};
+  // Build default values from schema for create mode
+  const buildDefaults = useCallback((s: any) => {
+    if (!s?.properties) return {};
+    const defaults: any = {};
+    for (const [key, prop] of Object.entries(s.properties) as [string, any][]) {
+      if (prop == null) continue;
+      if (prop.default !== undefined) {
+        defaults[key] = prop.default;
+      } else {
+        const type = detectFieldType(prop);
+        if (type === 'boolean') defaults[key] = false;
+        else if (type === 'number') defaults[key] = 0;
+        else if (type === 'array') defaults[key] = [];
+        else if (type === 'object') defaults[key] = {};
+        else defaults[key] = '';
+      }
+    }
+    return defaults;
+  }, []);
+
+  const safeInitialValues = initialValues && Object.keys(initialValues).length > 0
+    ? initialValues
+    : buildDefaults(schema);
   const [values, setValues] = useState<any>(safeInitialValues);
   const [errors, setErrors] = useState<any>({});
   const formRef = useRef<HTMLFormElement>(null);
@@ -428,6 +450,20 @@ export const JsonSchemaForm = forwardRef<JsonSchemaFormRef, JsonSchemaFormProps>
       setValues(initialValues);
     }
   }, [initialValues]);
+
+  // Initialize defaults from schema when in create mode (no initialValues)
+  useEffect(() => {
+    if ((!initialValues || Object.keys(initialValues).length === 0) && schema?.properties) {
+      setValues((prev: any) => {
+        const defaults = buildDefaults(schema);
+        // Only update if current values are empty (don't overwrite user edits)
+        if (Object.keys(prev).length === 0) {
+          return defaults;
+        }
+        return prev;
+      });
+    }
+  }, [schema, initialValues, buildDefaults]);
 
   // PERFORMANCE: Stable handleChange using functional state updater.
   // This callback never changes, so memoized child components won't re-render 

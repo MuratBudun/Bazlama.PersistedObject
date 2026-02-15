@@ -4,7 +4,7 @@ import {
   Alert, ThemeIcon, Title,
   Paper, Badge, Tabs, ScrollArea,
   Code, Accordion, List, Tooltip, CopyButton, ActionIcon,
-  SimpleGrid, Box
+  SimpleGrid, Box, useComputedColorScheme
 } from '@mantine/core'
 import {
   IconCode, IconTemplate, IconHelp,
@@ -697,6 +697,8 @@ datetime`}</Code>
 // ==================== Main Component ====================
 
 export default function ModelBuilder({ onCreated, registerModelScript }: ModelBuilderProps) {
+  const colorScheme = useComputedColorScheme('dark')
+  const isDark = colorScheme === 'dark'
   const [script, setScript] = useState(TEMPLATES[0].script)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -763,8 +765,8 @@ export default function ModelBuilder({ onCreated, registerModelScript }: ModelBu
                 py={6}
                 justify="space-between"
                 style={{
-                  borderBottom: '1px solid var(--mantine-color-dark-4)',
-                  backgroundColor: 'var(--mantine-color-dark-8)',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                  backgroundColor: isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-1)',
                 }}
               >
                 <Group gap="xs">
@@ -793,8 +795,8 @@ export default function ModelBuilder({ onCreated, registerModelScript }: ModelBu
                   lineHeight: 1.6,
                   padding: 16,
                   border: 'none',
-                  backgroundColor: 'var(--mantine-color-dark-7)',
-                  color: 'var(--mantine-color-text)',
+                  backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+                  color: isDark ? 'var(--mantine-color-gray-4)' : 'var(--mantine-color-dark-7)',
                   resize: 'vertical',
                   tabSize: 4,
                   outline: 'none',
@@ -862,13 +864,13 @@ export default function ModelBuilder({ onCreated, registerModelScript }: ModelBu
                     p="xs"
                     style={{
                       borderRadius: 6,
-                      backgroundColor: 'var(--mantine-color-dark-8)',
+                      backgroundColor: isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-1)',
                       fontFamily: 'monospace',
                       fontSize: 10,
                       lineHeight: 1.4,
                       maxHeight: 80,
                       overflow: 'hidden',
-                      color: 'var(--mantine-color-dimmed)',
+                      color: isDark ? 'var(--mantine-color-dimmed)' : 'var(--mantine-color-dark-4)',
                     }}
                   >
                     {t.script.split('\n').slice(0, 5).join('\n')}...
