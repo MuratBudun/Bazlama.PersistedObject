@@ -1,0 +1,25 @@
+[project]
+name = "persisted-object-dynamic-example"
+version = "0.1.0"
+description = "Dynamic PersistedObject Example - Create models at runtime"
+readme = "README.md"
+requires-python = ">=3.9.2"
+dependencies = [
+    "fastapi==0.115.0",
+    "pydantic==2.10.0",
+    "sqlalchemy==2.0.36",
+    "aiosqlite==0.20.0",
+    "greenlet>=3.0.0",
+    "uvicorn[standard]==0.32.0",
+    "python-dotenv==1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

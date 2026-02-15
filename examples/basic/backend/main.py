@@ -7,6 +7,7 @@ Now with advanced features: Boolean, Integer, DateTime columns and more!
 
 import os
 from pathlib import Path
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,17 +33,40 @@ if env_path.exists():
 else:
     print(f"No .env file found at {env_path}, using system environment variables")
 
+
+# ==================== Lifespan ====================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup."""
+    await create_tables()
+    print("\n✅ Database initialized with advanced features:")
+    print("   - Multiple column types (Boolean, Integer, DateTime)")
+    print("   - Automatic timestamps (created_at, updated_at)")
+    print("   - Composite unique constraints")
+    print("   - Optional JSON encryption (ApiKey model)")
+    print("   - Table caching for performance")
+    print("   - CrudHooks: auto-slug, email normalization, reading time, etc.")
+    yield
+
+
 # Create FastAPI app
 app = FastAPI(
     title="PersistedObject Example API (Router Factory)",
     description="Zero-boilerplate CRUD with advanced features",
-    version="0.2.0"
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,21 +81,6 @@ project_store = Store(Project)
 event_store = Store(Event)
 apikey_store = Store(ApiKey)
 blogpost_store = Store(BlogPost)
-
-
-# ==================== Startup Event ====================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    await create_tables()
-    print("\n✅ Database initialized with advanced features:")
-    print("   - Multiple column types (Boolean, Integer, DateTime)")
-    print("   - Automatic timestamps (created_at, updated_at)")
-    print("   - Composite unique constraints")
-    print("   - Optional JSON encryption (ApiKey model)")
-    print("   - Table caching for performance")
-    print("   - CrudHooks: auto-slug, email normalization, reading time, etc.")
 
 
 # ==================== ROUTER FACTORY - THE MAGIC! ====================

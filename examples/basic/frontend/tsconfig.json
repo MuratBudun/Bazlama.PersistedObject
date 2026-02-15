@@ -15,7 +15,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@persisted-object/react": ["../../react/src/index.ts"]
+      "@persisted-object/react": ["../../../react/src/index.ts"]
     },
 
     /* Linting */

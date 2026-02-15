@@ -289,7 +289,7 @@ function AppContent() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="md">
+      <AppShell.Navbar p="md" style={{ justifyContent: 'flex-start' }}>
         <Text size="xs" fw={700} c="dimmed" mb="xs">BASIC MODELS</Text>
         
         <Button

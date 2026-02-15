@@ -24,7 +24,7 @@ call .venv\Scripts\activate.bat
 
 echo.
 echo Step 3: Installing persisted-object package...
-pip install ..\..\python
+pip install ..\..\..\python
 if errorlevel 1 (
     echo Error: Failed to install persisted-object
     exit /b 1
