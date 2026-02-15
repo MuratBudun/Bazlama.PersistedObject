@@ -41,6 +41,21 @@ export function useModels() {
     return result
   }, [fetchModels])
 
+  const registerModelScript = useCallback(async (script: string) => {
+    const res = await fetch('/api/models/register-script', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ script }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to register model from script' }))
+      throw new Error(err.detail || 'Failed to register model from script')
+    }
+    const result = await res.json()
+    await fetchModels()
+    return result
+  }, [fetchModels])
+
   const deleteModel = useCallback(async (name: string) => {
     const res = await fetch(`/api/models/${name}`, { method: 'DELETE' })
     if (!res.ok) {
@@ -54,5 +69,5 @@ export function useModels() {
     fetchModels()
   }, [fetchModels])
 
-  return { models, loading, error, fetchModels, registerModel, deleteModel }
+  return { models, loading, error, fetchModels, registerModel, registerModelScript, deleteModel }
 }

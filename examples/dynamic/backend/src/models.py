@@ -44,3 +44,4 @@ class ModelDefinition(PersistedObject):
     table_name: str = StandardField(description="Database table name (snake_case, e.g. 'products')")
     description: str = DescriptionField(default="", description="Model description")
     fields: List[dict] = Field(default_factory=list, description="List of field definitions")
+    script: Optional[str] = Field(default=None, description="Python script for advanced model definition (PersistedObject class)")

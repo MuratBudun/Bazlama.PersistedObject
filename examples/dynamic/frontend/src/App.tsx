@@ -75,7 +75,7 @@ function AppContent() {
   const navigate = useNavigate()
   const location = useLocation()
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
-  const { models, loading, deleteModel, registerModel, fetchModels } = useModels()
+  const { models, loading, deleteModel, registerModelScript, fetchModels } = useModels()
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
 
@@ -187,7 +187,7 @@ function AppContent() {
               element={
                 <ModelBuilder
                   onCreated={handleModelCreated}
-                  registerModel={registerModel}
+                  registerModelScript={registerModelScript}
                 />
               }
             />

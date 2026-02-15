@@ -7,12 +7,23 @@ dynamically from ModelDefinition records at runtime.
 Supports simple types (string, integer, boolean, text, datetime)
 and complex types (string_array, object, object_array) that are
 stored in JSON only (not as DB columns).
+
+Also supports an "Advanced" mode where users provide a raw Python
+class definition (PersistedObject subclass) that is executed directly.
 """
 
+import re
+import textwrap
 from typing import Any, Dict, List, Optional, Type
+from datetime import datetime
 from pydantic import Field
 
-from persisted_object import PersistedObject, Store, create_crud_router
+from persisted_object import (
+    PersistedObject, Store, create_crud_router,
+    KeyField, TitleField, DescriptionField, StandardField,
+    ContentField, LargeContentField, MaxContentField,
+    IDField, ReferenceIDField, PasswordField, VersionField,
+)
 from persisted_object.sqlalchemy_models import mapper_registry
 
 from .database import engine
@@ -175,13 +186,52 @@ def create_dynamic_model(definition: dict) -> dict:
 
 
 async def ensure_table_exists(name: str) -> None:
-    """Create the database table for a dynamic model if it doesn't exist."""
+    """Create the database table for a dynamic model if it doesn't exist.
+    If the table already exists, add any missing columns (simple ALTER TABLE)."""
     if name not in _dynamic_stores:
         return
     store = _dynamic_stores[name]
-    # Ensure the table is created
+    model_cls = _dynamic_models.get(name)
+
+    # Ensure the table is created (won't modify existing tables)
     async with engine.begin() as conn:
         await conn.run_sync(mapper_registry.metadata.create_all)
+
+    # Check for missing columns and add them if needed
+    if model_cls:
+        table_name = model_cls.__table_name__
+        indexed_fields = getattr(model_cls, "__indexed_fields__", [])
+        pk = getattr(model_cls, "__primary_key__", None)
+
+        async with engine.begin() as conn:
+            # Get existing columns
+            result = await conn.exec_driver_sql(f"PRAGMA table_info('{table_name}')")
+            existing_cols = {row[1] for row in result}
+
+            # Add missing indexed field columns
+            for field_name in indexed_fields:
+                if field_name not in existing_cols and field_name != "json_data":
+                    # Determine column type from model annotations
+                    ann = model_cls.__annotations__.get(field_name)
+                    col_type = "TEXT"  # default
+                    if ann is int:
+                        col_type = "INTEGER"
+                    elif ann is bool:
+                        col_type = "BOOLEAN"
+                    elif ann is float:
+                        col_type = "REAL"
+
+                    default = ""
+                    if col_type == "INTEGER":
+                        default = " DEFAULT 0"
+                    elif col_type == "BOOLEAN":
+                        default = " DEFAULT 0"
+                    elif col_type == "TEXT":
+                        default = " DEFAULT ''"
+
+                    await conn.exec_driver_sql(
+                        f"ALTER TABLE {table_name} ADD COLUMN {field_name} {col_type}{default}"
+                    )
 
 
 def get_dynamic_model(name: str) -> Optional[Type[PersistedObject]]:
@@ -206,3 +256,190 @@ def remove_dynamic_model(name: str) -> bool:
         del _dynamic_stores[name]
         removed = True
     return removed
+
+
+# ==================== Advanced Script Mode ====================
+
+# Namespace available to user scripts
+_SCRIPT_NAMESPACE = {
+    # Core
+    "PersistedObject": PersistedObject,
+    "Field": Field,
+    # Field helpers
+    "KeyField": KeyField,
+    "TitleField": TitleField,
+    "DescriptionField": DescriptionField,
+    "StandardField": StandardField,
+    "ContentField": ContentField,
+    "LargeContentField": LargeContentField,
+    "MaxContentField": MaxContentField,
+    "IDField": IDField,
+    "ReferenceIDField": ReferenceIDField,
+    "PasswordField": PasswordField,
+    "VersionField": VersionField,
+    # Typing
+    "Optional": Optional,
+    "List": List,
+    "Dict": Dict,
+    "Any": Any,
+    "datetime": datetime,
+}
+
+
+def create_dynamic_model_from_script(script: str) -> dict:
+    """
+    Create a dynamic model by executing a Python script that defines
+    a PersistedObject subclass.
+
+    The script runs in a sandboxed namespace with PersistedObject imports
+    pre-loaded. After execution, the first PersistedObject subclass found
+    is registered as a dynamic model.
+
+    Returns info about what was created.
+    Raises ValueError if the script is invalid or no model class is found.
+
+    ⚠️  This executes user-provided Python code. Use only in trusted
+    environments (development, internal tools).
+    """
+    if not script or not script.strip():
+        raise ValueError("Script is empty")
+
+    # Prepare execution namespace with restricted builtins
+    # We need __build_class__ for class statements plus a safe subset
+    import builtins as _builtins
+    safe_builtins = {
+        "__build_class__": _builtins.__build_class__,
+        "True": True,
+        "False": False,
+        "None": None,
+        "str": str,
+        "int": int,
+        "float": float,
+        "bool": bool,
+        "list": list,
+        "dict": dict,
+        "tuple": tuple,
+        "set": set,
+        "len": len,
+        "range": range,
+        "enumerate": enumerate,
+        "isinstance": isinstance,
+        "issubclass": issubclass,
+        "type": type,
+        "property": property,
+        "staticmethod": staticmethod,
+        "classmethod": classmethod,
+        "super": super,
+        "hasattr": hasattr,
+        "getattr": getattr,
+        "setattr": setattr,
+        "print": print,
+    }
+    ns: Dict[str, Any] = dict(_SCRIPT_NAMESPACE)
+    ns["__builtins__"] = safe_builtins
+    ns["__name__"] = "__dynamic_script__"
+    ns["__module__"] = "__dynamic_script__"
+
+    # Execute the script
+    try:
+        exec(script, ns)
+    except Exception as e:
+        raise ValueError(f"Script execution error: {e}")
+
+    # Find PersistedObject subclasses defined in the script
+    model_cls = None
+    for obj in ns.values():
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, PersistedObject)
+            and obj is not PersistedObject
+            and hasattr(obj, "__table_name__")
+        ):
+            model_cls = obj
+            break  # take the first one
+
+    if model_cls is None:
+        raise ValueError(
+            "No PersistedObject subclass found in script. "
+            "Make sure you define a class that inherits from PersistedObject "
+            "and has __table_name__ set."
+        )
+
+    name = model_cls.__name__
+    table_name = model_cls.__table_name__
+
+    # Check if already exists
+    if name in _dynamic_models:
+        raise ValueError(f"Model '{name}' is already registered")
+
+    # Register model and create store
+    _dynamic_models[name] = model_cls
+    store = Store(model_cls)
+    _dynamic_stores[name] = store
+
+    return {
+        "name": name,
+        "table_name": table_name,
+        "endpoint": f"/api/dynamic/{table_name}",
+    }
+
+
+def extract_model_info_from_script(script: str) -> dict:
+    """
+    Extract model name, table_name, and description from a script
+    without fully executing it (uses the same exec approach but
+    extracts metadata for storage).
+    """
+    import builtins as _builtins
+    safe_builtins = {
+        "__build_class__": _builtins.__build_class__,
+        "True": True,
+        "False": False,
+        "None": None,
+        "str": str,
+        "int": int,
+        "float": float,
+        "bool": bool,
+        "list": list,
+        "dict": dict,
+        "tuple": tuple,
+        "set": set,
+        "len": len,
+        "range": range,
+        "enumerate": enumerate,
+        "isinstance": isinstance,
+        "issubclass": issubclass,
+        "type": type,
+        "property": property,
+        "staticmethod": staticmethod,
+        "classmethod": classmethod,
+        "super": super,
+        "hasattr": hasattr,
+        "getattr": getattr,
+        "setattr": setattr,
+        "print": print,
+    }
+    ns: Dict[str, Any] = dict(_SCRIPT_NAMESPACE)
+    ns["__builtins__"] = safe_builtins
+    ns["__name__"] = "__dynamic_script__"
+    ns["__module__"] = "__dynamic_script__"
+
+    try:
+        exec(script, ns)
+    except Exception as e:
+        raise ValueError(f"Script parse error: {e}")
+
+    for obj in ns.values():
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, PersistedObject)
+            and obj is not PersistedObject
+            and hasattr(obj, "__table_name__")
+        ):
+            return {
+                "name": obj.__name__,
+                "table_name": obj.__table_name__,
+                "description": obj.__doc__.strip() if obj.__doc__ else "",
+            }
+
+    raise ValueError("No PersistedObject subclass found in script")

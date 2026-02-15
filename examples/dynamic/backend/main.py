@@ -20,6 +20,8 @@ from src.database import get_db, create_tables, engine
 from src.models import ModelDefinition
 from src.dynamic_manager import (
     create_dynamic_model,
+    create_dynamic_model_from_script,
+    extract_model_info_from_script,
     ensure_table_exists,
     get_dynamic_model,
     get_dynamic_store,
@@ -52,10 +54,16 @@ async def lifespan(app: FastAPI):
                 else:
                     defn = item.model_dump() if hasattr(item, "model_dump") else dict(item)
                 try:
-                    info = create_dynamic_model(defn)
+                    # Check if this was created via script (Advanced mode)
+                    script = defn.get("script")
+                    if script:
+                        info = create_dynamic_model_from_script(script)
+                    else:
+                        info = create_dynamic_model(defn)
                     await ensure_table_exists(defn["name"])
                     _register_dynamic_routes(app, defn["name"])
-                    print(f"   Restored model: {defn['name']} -> {info['endpoint']}")
+                    mode = "script" if script else "fields"
+                    print(f"   Restored model ({mode}): {defn['name']} -> {info['endpoint']}")
                 except Exception as e:
                     print(f"   ⚠️ Failed to restore {defn.get('name', '?')}: {e}")
         except Exception as e:
@@ -177,6 +185,71 @@ async def register_model(request: Request, db: AsyncSession = Depends(get_db)):
     }
 
 
+@app.post("/api/models/register-script", tags=["Dynamic Models"])
+async def register_model_from_script(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Register a new dynamic model from a Python script (Advanced mode).
+
+    The script should define a class that inherits from PersistedObject.
+    Available imports: PersistedObject, Field, KeyField, TitleField,
+    DescriptionField, StandardField, ContentField, IDField, Optional,
+    List, Dict, Any, datetime.
+
+    ⚠️  Executes user-provided code. Use only in trusted environments.
+    """
+    body = await request.json()
+    script = body.get("script", "").strip()
+
+    if not script:
+        raise HTTPException(status_code=400, detail="script is required")
+
+    # Extract model info from script to validate before executing
+    try:
+        model_info = extract_model_info_from_script(script)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    name = model_info["name"]
+
+    # Check if already exists
+    if get_dynamic_model(name):
+        raise HTTPException(status_code=409, detail=f"Model '{name}' is already registered")
+
+    # Save definition to database (with script, empty fields)
+    definition = ModelDefinition(
+        name=name,
+        table_name=model_info["table_name"],
+        description=model_info.get("description", ""),
+        fields=[],
+        script=script,
+    )
+    await definition_store.acreate(db, definition)
+
+    # Create dynamic model from script
+    try:
+        info = create_dynamic_model_from_script(script)
+    except ValueError as e:
+        # Rollback the saved definition
+        try:
+            await definition_store.adelete(db, name)
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Create table
+    await ensure_table_exists(name)
+
+    # Register routes
+    _register_dynamic_routes(app, name)
+
+    return {
+        "status": "created",
+        **info,
+        "mode": "script",
+        "message": f"Model '{name}' created from script. API available at {info['endpoint']}",
+    }
+
+
 @app.get("/api/models", tags=["Dynamic Models"])
 async def list_models(db: AsyncSession = Depends(get_db)):
     """List all registered dynamic models and their endpoints."""
@@ -192,6 +265,7 @@ async def list_models(db: AsyncSession = Depends(get_db)):
             "table_name": defn["table_name"],
             "description": defn.get("description", ""),
             "fields": defn.get("fields", []),
+            "script": defn.get("script"),
             "endpoint": f"/api/dynamic/{defn['table_name']}",
             "is_active": get_dynamic_model(defn["name"]) is not None,
         })
@@ -232,6 +306,7 @@ def root():
             "definitions": "/api/definitions",
             "models_list": "/api/models",
             "register_model": "/api/models/register",
+            "register_model_script": "/api/models/register-script",
         },
     }
 

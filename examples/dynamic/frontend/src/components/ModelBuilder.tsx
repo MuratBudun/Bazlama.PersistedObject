@@ -1,329 +1,719 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
-  Stack, TextInput, Textarea, Button, Group, Card, Text,
-  Select, Switch, ActionIcon, Badge, NumberInput, Title,
-  Alert, ThemeIcon, Divider, Code, ScrollArea, Tooltip,
-  Paper, SimpleGrid, Box, Collapse
+  Stack, Button, Group, Card, Text,
+  Alert, ThemeIcon, Title,
+  Paper, Badge, Tabs, ScrollArea,
+  Code, Accordion, List, Tooltip, CopyButton, ActionIcon,
+  SimpleGrid, Box
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import {
-  IconPlus, IconTrash, IconDeviceFloppy, IconDatabase,
-  IconBraces, IconKey, IconSearch, IconChevronDown,
-  IconChevronUp, IconGripVertical
+  IconCode, IconTemplate, IconHelp,
+  IconPlayerPlay, IconBook, IconCopy, IconCheck,
+  IconDatabase, IconBraces, IconKey, IconSearch,
+  IconLock, IconId, IconTextCaption, IconFileDescription,
+  IconArticle, IconLink
 } from '@tabler/icons-react'
-import { FieldDef, FieldType, isSimpleType, FIELD_TYPE_LABELS } from '../types'
 
 interface ModelBuilderProps {
   onCreated: (modelName: string) => void
-  registerModel: (model: any) => Promise<any>
+  registerModelScript: (script: string) => Promise<any>
 }
 
-const ALL_TYPES = [
+// ==================== Template Scripts from Basic Example ====================
+
+const TEMPLATES: { name: string; color: string; description: string; script: string }[] = [
   {
-    group: 'Simple',
-    items: [
-      { value: 'string', label: 'String' },
-      { value: 'integer', label: 'Integer' },
-      { value: 'boolean', label: 'Boolean' },
-      { value: 'text', label: 'Text (long)' },
-      { value: 'datetime', label: 'DateTime' },
-    ],
+    name: 'AppSettings',
+    color: 'teal',
+    description: 'Key-value configuration store. Simple and practical.',
+    script: `class AppSettings(PersistedObject):
+    """
+    Application settings model.
+    A simple key-value store for application configuration.
+    """
+    __table_name__ = "app_settings"
+    __primary_key__ = "key"
+    __indexed_fields__ = ["key", "category"]
+
+    key: str = KeyField(description="Setting key (unique identifier)", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    value: str = StandardField(description="Setting value", json_schema_extra={"ui_width": 6, "ui_index": 2})
+    category: str = KeyField(default="general", description="Setting category", json_schema_extra={"ui_width": 3, "ui_index": 1})
+    description: Optional[str] = DescriptionField(
+        default=None,
+        description="Description of what this setting does",
+        json_schema_extra={"ui_index": 6}
+    )
+`,
   },
   {
-    group: 'Complex',
-    items: [
-      { value: 'string_array', label: 'String[]  (tag list)' },
-      { value: 'object', label: 'Object  (nested JSON)' },
-      { value: 'object_array', label: 'Object[]  (list of objects)' },
-    ],
+    name: 'Category',
+    color: 'blue',
+    description: 'Boolean, Integer, unique slug, auto timestamps.',
+    script: `class Category(PersistedObject):
+    """
+    Category model demonstrating multiple column types.
+    Boolean (is_active), Integer (sort_order), unique slug.
+    """
+    __table_name__ = "categories"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "slug", "is_active", "sort_order"]
+    __unique_fields__ = ["slug"]
+
+    id: str = KeyField(description="Category ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly slug (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Category display title", json_schema_extra={"ui_width": 2, "ui_index": 2})
+    description: Optional[str] = DescriptionField(
+        default=None,
+        description="Category description",
+        json_schema_extra={"ui_index": 3}
+    )
+    icon: Optional[str] = KeyField(
+        default="folder",
+        description="Icon name for UI",
+        json_schema_extra={"ui_width": 2, "ui_index": 4}
+    )
+    is_active: bool = StandardField(default=True, description="Whether category is active", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    sort_order: int = StandardField(default=0, description="Display sort order", json_schema_extra={"ui_width": 2, "ui_index": 6})
+`,
+  },
+  {
+    name: 'Tag',
+    color: 'cyan',
+    description: 'Minimal model — name, color picker, usage count.',
+    script: `class Tag(PersistedObject):
+    """Simple tag model with color and usage count."""
+    __table_name__ = "tags"
+    __primary_key__ = "name"
+    __indexed_fields__ = ["name"]
+
+    name: str = KeyField(description="Tag name (unique)", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    color: Optional[str] = KeyField(
+        default="#3b82f6",
+        description="Hex color code for UI",
+        json_schema_extra={"ui_component": "ColorPicker", "ui_width": 3, "ui_index": 1}
+    )
+    usage_count: int = StandardField(
+        default=0,
+        description="Number of times this tag is used",
+        json_schema_extra={"ui_width": 3, "ui_index": 2}
+    )
+`,
+  },
+  {
+    name: 'User',
+    color: 'violet',
+    description: 'Advanced: arrays, nested data, unique constraints, DateTime.',
+    script: `class User(PersistedObject):
+    """
+    User model with composite unique, DateTime, arrays, nested data.
+    """
+    __table_name__ = "users"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "email", "username", "is_active", "role", "last_login"]
+    __unique_fields__ = ["email", "username"]
+
+    id: str = IDField(description="User ID (ULID)", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    email: str = KeyField(description="Email address (unique)", json_schema_extra={"ui_width": 2, "ui_index": 2})
+    username: str = KeyField(description="Username (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    full_name: str = TitleField(description="Full display name", json_schema_extra={"ui_width": 3, "ui_index": 3})
+    role: str = KeyField(
+        default="user",
+        description="User role (admin, user, guest)",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
+            "ui_props": {
+                "options": [
+                    {"value": "admin", "label": "Admin", "color": "red"},
+                    {"value": "user", "label": "User", "color": "blue"},
+                    {"value": "guest", "label": "Guest", "color": "gray"}
+                ]
+            }
+        }
+    )
+    is_active: bool = StandardField(default=True, description="Whether user is active", json_schema_extra={"ui_width": 1, "ui_index": 5})
+    last_login: Optional[datetime] = StandardField(default=None, description="Last login date and time", json_schema_extra={"ui_width": 3, "ui_index": 6})
+
+    # Array fields -- stored in json_data
+    tags: List[str] = StandardField(
+        default_factory=list,
+        description="User tags for categorization",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 7}
+    )
+    permissions: List[str] = StandardField(
+        default_factory=list,
+        description="List of permissions granted to user",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 8}
+    )
+
+    # Complex nested data -- stored in json_data
+    profile: Dict[str, Any] = StandardField(
+        default_factory=dict,
+        description="User profile data (avatar, bio, preferences, etc.)",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 10}
+    )
+    settings: Dict[str, Any] = StandardField(
+        default_factory=lambda: {
+            "theme": "light",
+            "language": "en",
+            "notifications": True,
+            "email_updates": False
+        },
+        description="User preferences and settings",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 11}
+    )
+`,
+  },
+  {
+    name: 'Project',
+    color: 'green',
+    description: 'Arrays of objects, members with roles, milestones.',
+    script: `class Project(PersistedObject):
+    """
+    Project model with complex arrays, members, milestones.
+    """
+    __table_name__ = "projects"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "slug", "status", "owner_id", "is_public", "member_count"]
+    __unique_fields__ = ["slug"]
+
+    id: str = IDField(description="Project ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly project slug", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Project title", json_schema_extra={"ui_width": 2, "ui_index": 2})
+    description: Optional[str] = DescriptionField(
+        default=None,
+        description="Project description",
+        json_schema_extra={"ui_index": 3}
+    )
+    status: str = KeyField(
+        default="draft",
+        description="Project status",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
+            "ui_props": {
+                "options": [
+                    {"value": "draft", "label": "Draft", "color": "gray"},
+                    {"value": "active", "label": "Active", "color": "green"},
+                    {"value": "completed", "label": "Completed", "color": "blue"},
+                    {"value": "archived", "label": "Archived", "color": "orange"}
+                ]
+            }
+        }
+    )
+    owner_id: str = KeyField(description="ID of project owner", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    is_public: bool = StandardField(default=False, description="Whether project is public", json_schema_extra={"ui_width": 1, "ui_index": 6})
+    member_count: int = StandardField(default=0, description="Number of members", json_schema_extra={"ui_width": 1, "ui_index": 7})
+
+    tags: List[str] = StandardField(
+        default_factory=list,
+        description="Project tags",
+        json_schema_extra={"ui_component": "TagsInput", "ui_index": 8}
+    )
+    members: List[Dict[str, Any]] = StandardField(
+        default_factory=list,
+        description="Project members with roles",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 9}
+    )
+    milestones: List[Dict[str, Any]] = StandardField(
+        default_factory=list,
+        description="Project milestones with deadlines",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 10}
+    )
+`,
+  },
+  {
+    name: 'Event',
+    color: 'orange',
+    description: 'DateTime fields, PriorityIndicator, boolean flags.',
+    script: `class Event(PersistedObject):
+    """
+    Event model with DateTime, Boolean, and PriorityIndicator.
+    """
+    __table_name__ = "events"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "event_date", "is_published", "category", "priority"]
+
+    id: str = IDField(description="Event ID", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    title: str = TitleField(description="Event title", json_schema_extra={"ui_width": 3, "ui_index": 1})
+    description: Optional[str] = DescriptionField(
+        default=None,
+        description="Event description",
+        json_schema_extra={"ui_index": 2}
+    )
+    category: str = KeyField(default="general", description="Event category", json_schema_extra={"ui_width": 2, "ui_index": 3})
+
+    event_date: datetime = StandardField(
+        default_factory=datetime.now,
+        description="Event date and time",
+        json_schema_extra={"ui_width": 2, "ui_index": 4}
+    )
+
+    is_published: bool = StandardField(default=False, description="Whether event is published", json_schema_extra={"ui_width": 1, "ui_index": 5})
+    is_featured: bool = StandardField(default=False, description="Whether event is featured", json_schema_extra={"ui_width": 1, "ui_index": 6})
+
+    priority: int = StandardField(
+        default=0,
+        description="Priority level (0=low, 1=medium, 2=high)",
+        json_schema_extra={
+            "ui_component": "PriorityIndicator",
+            "ui_width": 3,
+            "ui_index": 7,
+            "ui_props": {
+                "levels": [
+                    {"value": 0, "label": "Low", "color": "green"},
+                    {"value": 1, "label": "Medium", "color": "yellow"},
+                    {"value": 2, "label": "High", "color": "red"}
+                ]
+            }
+        }
+    )
+
+    location: Dict[str, Any] = StandardField(
+        default_factory=dict,
+        description="Event location (venue, address, coordinates)",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 8}
+    )
+    attendees: List[str] = StandardField(
+        default_factory=list,
+        description="List of attendee user IDs",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 9}
+    )
+`,
+  },
+  {
+    name: 'ApiKey',
+    color: 'red',
+    description: 'Encrypted JSON storage, rate limiting, usage tracking.',
+    script: `class ApiKey(PersistedObject):
+    """
+    API Key model with encrypted storage.
+    Enable encryption: __encrypt_json__ = True (requires: pip install cryptography)
+    """
+    __table_name__ = "api_keys"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "name", "is_active", "expires_at"]
+    __unique_fields__ = ["name"]
+    # __encrypt_json__ = True  # Uncomment to enable encryption
+
+    id: str = IDField(description="API Key ID", json_schema_extra={"ui_width": 3, "ui_index": 0})
+    name: str = KeyField(description="API Key name (unique)", json_schema_extra={"ui_width": 3, "ui_index": 1})
+    description: Optional[str] = DescriptionField(
+        default=None,
+        description="Description of API key purpose",
+        json_schema_extra={"ui_index": 2}
+    )
+
+    secure_value: str = PasswordField(
+        description="The actual API key value (encrypted)",
+        json_schema_extra={"ui_index": 3}
+    )
+
+    is_active: bool = StandardField(default=True, description="Whether key is active", json_schema_extra={"ui_width": 2, "ui_index": 4})
+    expires_at: Optional[datetime] = StandardField(default=None, description="Expiration date", json_schema_extra={"ui_width": 2, "ui_index": 5})
+
+    scopes: List[str] = StandardField(
+        default_factory=list,
+        description="API scopes/permissions",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 6}
+    )
+    allowed_ips: List[str] = StandardField(
+        default_factory=list,
+        description="Whitelist of allowed IP addresses",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 7}
+    )
+
+    rate_limit: Dict[str, Any] = StandardField(
+        default_factory=lambda: {"requests": 1000, "period": "hour"},
+        description="Rate limiting settings",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 8}
+    )
+    usage_history: List[Dict[str, Any]] = StandardField(
+        default_factory=list,
+        description="Recent usage history",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 9}
+    )
+
+    created_by: Optional[str] = KeyField(
+        default=None,
+        description="User ID who created this key",
+        json_schema_extra={"ui_width": 2, "ui_index": 10}
+    )
+    last_used_at: Optional[datetime] = StandardField(default=None, description="Last used date", json_schema_extra={"ui_width": 2, "ui_index": 11})
+`,
+  },
+  {
+    name: 'BlogPost',
+    color: 'pink',
+    description: 'Rich content blocks, SEO, translations, social stats.',
+    script: `class BlogPost(PersistedObject):
+    """
+    Blog Post model with rich content, SEO, translations, and comments.
+    """
+    __table_name__ = "blog_posts"
+    __primary_key__ = "id"
+    __indexed_fields__ = ["id", "slug", "status", "published_at", "is_featured", "author_id"]
+    __unique_fields__ = ["slug"]
+
+    id: str = IDField(description="Blog post ID", json_schema_extra={"ui_width": 2, "ui_index": 0})
+    slug: str = KeyField(description="URL-friendly slug (unique)", json_schema_extra={"ui_width": 2, "ui_index": 1})
+    title: str = TitleField(description="Blog post title", json_schema_extra={"ui_width": 2, "ui_index": 2})
+    subtitle: Optional[str] = TitleField(
+        default=None,
+        description="Blog post subtitle",
+        json_schema_extra={"ui_index": 3}
+    )
+
+    status: str = KeyField(
+        default="draft",
+        description="Post status",
+        json_schema_extra={
+            "ui_component": "StatusBadge",
+            "ui_width": 2,
+            "ui_index": 4,
+            "ui_props": {
+                "options": [
+                    {"value": "draft", "label": "Draft", "color": "gray"},
+                    {"value": "published", "label": "Published", "color": "green"},
+                    {"value": "archived", "label": "Archived", "color": "orange"}
+                ]
+            }
+        }
+    )
+    published_at: Optional[datetime] = StandardField(default=None, description="Publish date", json_schema_extra={"ui_width": 2, "ui_index": 5})
+    is_featured: bool = StandardField(default=False, description="Whether post is featured", json_schema_extra={"ui_width": 1, "ui_index": 6})
+    author_id: str = KeyField(description="Author user ID", json_schema_extra={"ui_width": 1, "ui_index": 7})
+
+    content_blocks: List[Dict[str, Any]] = StandardField(
+        default_factory=list,
+        description="Structured content blocks (text, image, code, quote)",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 8}
+    )
+
+    meta_keywords: List[str] = StandardField(
+        default_factory=list,
+        description="SEO keywords",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 9}
+    )
+    meta_description: Optional[str] = DescriptionField(
+        default=None,
+        description="SEO meta description",
+        json_schema_extra={"ui_width": 3, "ui_index": 10}
+    )
+
+    categories: List[str] = StandardField(
+        default_factory=list,
+        description="Category IDs",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 11}
+    )
+    tags: List[str] = StandardField(
+        default_factory=list,
+        description="Tag names",
+        json_schema_extra={"ui_component": "TagsInput", "ui_width": 3, "ui_index": 12}
+    )
+
+    translations: Dict[str, Dict[str, str]] = StandardField(
+        default_factory=dict,
+        description="Multi-language translations",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 13}
+    )
+
+    social_stats: Dict[str, int] = StandardField(
+        default_factory=lambda: {"views": 0, "likes": 0, "shares": 0, "comments": 0},
+        description="Social interaction statistics",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 14}
+    )
+
+    comments: List[Dict[str, Any]] = StandardField(
+        default_factory=list,
+        description="Comments on this post",
+        json_schema_extra={"ui_component": "JsonEditor", "ui_index": 15}
+    )
+
+    reading_time_minutes: int = StandardField(default=0, description="Estimated reading time", json_schema_extra={"ui_width": 2, "ui_index": 16})
+`,
   },
 ]
 
-function toSnakeCase(str: string): string {
-  return str
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '')
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-}
+// ==================== Help Content ====================
 
-function toPascalCase(str: string): string {
-  return str
-    .replace(/[^a-zA-Z0-9]/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join('')
-}
-
-const emptyField = (): FieldDef => ({
-  name: '',
-  field_type: 'string',
-  description: '',
-  required: true,
-  default_value: null,
-  max_length: null,
-  is_primary_key: false,
-  is_indexed: false,
-  is_unique: false,
-})
-
-/** A single field editor card */
-function FieldCard({
-  field,
-  index,
-  onUpdate,
-  onRemove,
-}: {
-  field: FieldDef
-  index: number
-  onUpdate: (updates: Partial<FieldDef>) => void
-  onRemove: () => void
-}) {
-  const simple = isSimpleType(field.field_type)
-  const canIndex = simple // only simple types can be indexed (DB columns)
-  const showMaxLen = field.field_type === 'string' || field.field_type === 'text'
-
+function HelpPanel() {
   return (
-    <Card withBorder padding="sm" radius="md" style={{ position: 'relative' }}>
-      <Group gap="xs" mb="xs" justify="space-between" wrap="nowrap">
-        <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-          {field.is_primary_key && (
-            <Tooltip label="Primary Key"><ThemeIcon size="xs" variant="light" color="yellow"><IconKey size={12} /></ThemeIcon></Tooltip>
-          )}
-          {field.is_indexed && !field.is_primary_key && (
-            <Tooltip label="Indexed (DB column)"><ThemeIcon size="xs" variant="light" color="blue"><IconSearch size={12} /></ThemeIcon></Tooltip>
-          )}
-          {!canIndex && (
-            <Tooltip label="Stored in JSON only"><ThemeIcon size="xs" variant="light" color="grape"><IconBraces size={12} /></ThemeIcon></Tooltip>
-          )}
-          <Badge
-            size="xs"
-            variant="light"
-            color={!canIndex ? 'grape' : field.is_primary_key ? 'yellow' : field.is_indexed ? 'blue' : 'gray'}
-          >
-            {FIELD_TYPE_LABELS[field.field_type]}
-          </Badge>
-          <Text size="sm" fw={600} ff="monospace">{field.name || '(unnamed)'}</Text>
-        </Group>
-        <ActionIcon variant="subtle" color="red" size="sm" onClick={onRemove}>
-          <IconTrash size={14} />
-        </ActionIcon>
-      </Group>
+    <ScrollArea h="calc(100vh - 260px)" offsetScrollbars>
+      <Stack gap="md">
+        <Alert variant="light" color="teal" title="PersistedObject Model Definition" icon={<IconBook size={18} />}>
+          <Text size="sm">
+            A PersistedObject model is a Python class that defines your data structure.
+            Primary key and indexed fields become real database columns for fast queries.
+            Everything else is stored as JSON — supporting arrays, nested objects, any structure.
+          </Text>
+        </Alert>
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-        <TextInput
-          size="xs"
-          label="Field Name"
-          placeholder="field_name"
-          value={field.name}
-          onChange={e => onUpdate({ name: e.currentTarget.value })}
-          styles={{ input: { fontFamily: 'monospace' } }}
-        />
-        <Select
-          size="xs"
-          label="Type"
-          data={ALL_TYPES}
-          value={field.field_type}
-          onChange={val => {
-            const newType = (val || 'string') as FieldType
-            const updates: Partial<FieldDef> = { field_type: newType }
-            // If switching to complex type, disable index/pk/unique
-            if (!isSimpleType(newType)) {
-              updates.is_indexed = false
-              updates.is_primary_key = false
-              updates.is_unique = false
-            }
-            onUpdate(updates)
-          }}
-          allowDeselect={false}
-        />
-      </SimpleGrid>
+        <Accordion variant="separated" radius="md" defaultValue="structure">
+          {/* Class Structure */}
+          <Accordion.Item value="structure">
+            <Accordion.Control icon={<IconCode size={18} />}>
+              <Text fw={600} size="sm">Class Structure</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="xs">
+                <Text size="sm">Every model must inherit from <Code>PersistedObject</Code> and define these class variables:</Text>
+                <Code block>{`class MyModel(PersistedObject):
+    """Model description (becomes API documentation)."""
+    __table_name__ = "my_table"          # Database table name
+    __primary_key__ = "id"               # Primary key field name
+    __indexed_fields__ = ["id", "name"]  # Fields that become DB columns
+    __unique_fields__ = ["name"]         # Optional: fields with UNIQUE constraint
+    # __encrypt_json__ = True            # Optional: encrypt JSON data
 
-      <TextInput
-        size="xs"
-        mt="xs"
-        label="Description"
-        placeholder="What is this field for?"
-        value={field.description}
-        onChange={e => onUpdate({ description: e.currentTarget.value })}
-      />
+    id: str = IDField(description="Unique ID")
+    name: str = KeyField(description="Name")`}</Code>
+                <List size="sm" spacing={4}>
+                  <List.Item><Code>__table_name__</Code> — Database table name (snake_case, plural)</List.Item>
+                  <List.Item><Code>__primary_key__</Code> — Which field is the primary key</List.Item>
+                  <List.Item><Code>__indexed_fields__</Code> — Fields stored as real DB columns (for queries)</List.Item>
+                  <List.Item><Code>__unique_fields__</Code> — Fields with UNIQUE constraint (optional)</List.Item>
+                  <List.Item><Code>__encrypt_json__</Code> — Encrypt the JSON data column (optional, needs <Code>cryptography</Code> package)</List.Item>
+                </List>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
 
-      <Group mt="xs" gap="md">
-        {canIndex && (
-          <>
-            <Switch
-              size="xs"
-              label={<Text size="xs">Primary Key</Text>}
-              checked={field.is_primary_key}
-              onChange={e => {
-                if (e.currentTarget.checked) {
-                  onUpdate({ is_primary_key: true, is_indexed: true, required: true })
-                } else {
-                  onUpdate({ is_primary_key: false })
-                }
-              }}
-            />
-            <Switch
-              size="xs"
-              label={<Text size="xs">Index</Text>}
-              checked={field.is_indexed}
-              disabled={field.is_primary_key}
-              onChange={e => onUpdate({ is_indexed: e.currentTarget.checked })}
-            />
-            <Switch
-              size="xs"
-              label={<Text size="xs">Unique</Text>}
-              checked={field.is_unique}
-              onChange={e => onUpdate({ is_unique: e.currentTarget.checked })}
-            />
-          </>
-        )}
-        <Switch
-          size="xs"
-          label={<Text size="xs">Required</Text>}
-          checked={field.required}
-          disabled={field.is_primary_key}
-          onChange={e => onUpdate({ required: e.currentTarget.checked })}
-        />
-        {showMaxLen && (
-          <NumberInput
-            size="xs"
-            label="Max Length"
-            value={field.max_length ?? undefined}
-            onChange={val => onUpdate({ max_length: typeof val === 'number' ? val : null })}
-            min={1}
-            max={100000}
-            hideControls
-            w={90}
-          />
-        )}
-      </Group>
-    </Card>
+          {/* Field Helpers */}
+          <Accordion.Item value="field-helpers">
+            <Accordion.Control icon={<IconDatabase size={18} />}>
+              <Text fw={600} size="sm">Field Helpers</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="sm">
+                <Text size="sm">PersistedObject provides field helper functions that set appropriate defaults:</Text>
+
+                <SimpleGrid cols={2} spacing="xs">
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="yellow"><IconKey size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">KeyField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Short indexed strings (max 200 chars). For IDs, slugs, categories.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="blue"><IconTextCaption size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">TitleField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Display titles and names (max 500 chars).</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="grape"><IconFileDescription size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">DescriptionField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Descriptions (max 2000 chars). Stored in JSON.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="teal"><IconBraces size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">StandardField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">General purpose. No max_length. Use for any type.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="orange"><IconArticle size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">ContentField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Long content (max 50K chars). For articles, markdown.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="indigo"><IconId size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">IDField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Auto-generated ULID. Use for primary keys.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="red"><IconLock size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">PasswordField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Sensitive data. Renders as password input in forms.</Text>
+                  </Card>
+
+                  <Card withBorder padding="xs" radius="sm">
+                    <Group gap={4} mb={2}>
+                      <ThemeIcon size="xs" variant="light" color="cyan"><IconLink size={10} /></ThemeIcon>
+                      <Text size="xs" fw={600} ff="monospace">ReferenceIDField</Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">Foreign key reference to another model.</Text>
+                  </Card>
+                </SimpleGrid>
+
+                <Text size="xs" c="dimmed" mt={4}>
+                  You can also use the Pydantic <Code>Field()</Code> directly for full control.
+                </Text>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+
+          {/* Python Types */}
+          <Accordion.Item value="types">
+            <Accordion.Control icon={<IconBraces size={18} />}>
+              <Text fw={600} size="sm">Python Types & Storage</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="xs">
+                <Text size="sm" fw={600}>Simple types (can be DB columns when indexed):</Text>
+                <Code block>{`name: str          # String → TEXT column
+count: int         # Integer → INTEGER column
+is_active: bool    # Boolean → BOOLEAN column
+created: datetime  # DateTime → TEXT column (ISO format)`}</Code>
+
+                <Text size="sm" fw={600} mt="xs">Complex types (always stored in JSON):</Text>
+                <Code block>{`tags: List[str]                    # Array of strings
+config: Dict[str, Any]             # Nested JSON object
+members: List[Dict[str, Any]]      # Array of objects`}</Code>
+
+                <Text size="sm" fw={600} mt="xs">Optional fields:</Text>
+                <Code block>{`name: Optional[str] = Field(default=None)
+tags: List[str] = StandardField(default_factory=list)`}</Code>
+
+                <Alert variant="light" color="blue" mt="xs">
+                  <Text size="xs">
+                    <strong>Rule:</strong> Fields in <Code>__indexed_fields__</Code> become real DB columns
+                    (for WHERE, ORDER BY, indexes). Everything else goes into a single JSON column — 
+                    perfect for flexible, schema-free data.
+                  </Text>
+                </Alert>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+
+          {/* UI Customization */}
+          <Accordion.Item value="ui">
+            <Accordion.Control icon={<IconTemplate size={18} />}>
+              <Text fw={600} size="sm">UI Customization (json_schema_extra)</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="xs">
+                <Text size="sm">
+                  Use <Code>json_schema_extra</Code> to control how fields appear in auto-generated forms and tables:
+                </Text>
+                <Code block>{`name: str = KeyField(
+    description="User name",
+    json_schema_extra={
+        "ui_width": 3,          # Grid width (1-12)
+        "ui_index": 0,          # Display order
+        "ui_component": "...",  # Custom component name
+        "ui_props": { ... },    # Props passed to component
+    }
+)`}</Code>
+
+                <Text size="sm" fw={600} mt="xs">Built-in UI Components:</Text>
+                <List size="sm" spacing={4}>
+                  <List.Item><Code>"ColorPicker"</Code> — Color picker with hex input</List.Item>
+                  <List.Item><Code>"TagsInput"</Code> — Tag editor for <Code>List[str]</Code> fields</List.Item>
+                  <List.Item><Code>"JsonEditor"</Code> — JSON editor for <Code>Dict</Code> / <Code>List[Dict]</Code> fields</List.Item>
+                  <List.Item><Code>"StatusBadge"</Code> — Colored badge selector (needs <Code>ui_props.options</Code>)</List.Item>
+                  <List.Item><Code>"PriorityIndicator"</Code> — Priority levels with icons (needs <Code>ui_props.levels</Code>)</List.Item>
+                </List>
+
+                <Text size="sm" fw={600} mt="xs">StatusBadge example:</Text>
+                <Code block>{`status: str = KeyField(
+    default="draft",
+    json_schema_extra={
+        "ui_component": "StatusBadge",
+        "ui_props": {
+            "options": [
+                {"value": "draft", "label": "Draft", "color": "gray"},
+                {"value": "active", "label": "Active", "color": "green"},
+            ]
+        }
+    }
+)`}</Code>
+
+                <Text size="sm" fw={600} mt="xs">PriorityIndicator example:</Text>
+                <Code block>{`priority: int = StandardField(
+    default=0,
+    json_schema_extra={
+        "ui_component": "PriorityIndicator",
+        "ui_props": {
+            "levels": [
+                {"value": 0, "label": "Low", "color": "green"},
+                {"value": 1, "label": "Medium", "color": "yellow"},
+                {"value": 2, "label": "High", "color": "red"},
+            ]
+        }
+    }
+)`}</Code>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+
+          {/* Available Imports */}
+          <Accordion.Item value="imports">
+            <Accordion.Control icon={<IconSearch size={18} />}>
+              <Text fw={600} size="sm">Available in Script Sandbox</Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="xs">
+                <Text size="sm">These are pre-imported and available in your script:</Text>
+                <Code block>{`# Core
+PersistedObject          # Base class
+Field                    # Pydantic Field
+
+# Field helpers
+KeyField                 # Short indexed strings
+TitleField               # Display titles
+DescriptionField         # Descriptions
+StandardField            # General purpose
+ContentField             # Long content (50K)
+LargeContentField        # Larger content (200K)
+MaxContentField          # Maximum content (1M)
+IDField                  # Auto-generated ULID
+ReferenceIDField         # Foreign key reference
+PasswordField            # Sensitive data
+VersionField             # Version tracking
+
+# Python typing
+Optional, List, Dict, Any
+datetime`}</Code>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+      </Stack>
+    </ScrollArea>
   )
 }
 
-/** Generate JSON preview of the object shape */
-function buildPreview(fields: FieldDef[]): string {
-  const obj: Record<string, any> = {}
-  for (const f of fields) {
-    if (!f.name) continue
-    switch (f.field_type) {
-      case 'string':
-      case 'text':
-        obj[f.name] = f.is_primary_key ? '"pk-value"' : `"${f.name}_value"`
-        break
-      case 'integer':
-        obj[f.name] = 0
-        break
-      case 'boolean':
-        obj[f.name] = true
-        break
-      case 'datetime':
-        obj[f.name] = '"2026-01-15T10:30:00"'
-        break
-      case 'string_array':
-        obj[f.name] = '["tag1", "tag2"]'
-        break
-      case 'object':
-        obj[f.name] = '{ "key": "value" }'
-        break
-      case 'object_array':
-        obj[f.name] = '[{ "id": "1", "role": "admin" }]'
-        break
-    }
-  }
+// ==================== Main Component ====================
 
-  const lines: string[] = ['{']
-  const entries = Object.entries(obj)
-  entries.forEach(([key, val], i) => {
-    const comma = i < entries.length - 1 ? ',' : ''
-    const isRaw = typeof val === 'string' && (val.startsWith('{') || val.startsWith('[') || val.startsWith('"'))
-    lines.push(`  "${key}": ${isRaw ? val : JSON.stringify(val)}${comma}`)
-  })
-  lines.push('}')
-  return lines.join('\n')
-}
-
-export default function ModelBuilder({ onCreated, registerModel }: ModelBuilderProps) {
-  const [modelName, setModelName] = useState('')
-  const [tableName, setTableName] = useState('')
-  const [description, setDescription] = useState('')
-  const [fields, setFields] = useState<FieldDef[]>([
-    { ...emptyField(), name: 'id', description: 'Unique identifier', is_primary_key: true, is_indexed: true, field_type: 'string' },
-    { ...emptyField(), name: 'name', description: 'Display name', field_type: 'string' },
-  ])
+export default function ModelBuilder({ onCreated, registerModelScript }: ModelBuilderProps) {
+  const [script, setScript] = useState(TEMPLATES[0].script)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [previewOpen, { toggle: togglePreview }] = useDisclosure(true)
-
-  const handleNameChange = (val: string) => {
-    setModelName(val)
-    if (!tableName || tableName === toSnakeCase(modelName) + 's') {
-      setTableName(toSnakeCase(val) + 's')
-    }
-  }
-
-  const addField = (type: FieldType = 'string') => {
-    setFields(prev => [...prev, { ...emptyField(), field_type: type }])
-  }
-
-  const removeField = (index: number) => {
-    setFields(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const updateField = (index: number, updates: Partial<FieldDef>) => {
-    setFields(prev => {
-      const updated = prev.map((f, i) => (i === index ? { ...f, ...updates } : f))
-      // If setting primary key, unset from others
-      if (updates.is_primary_key === true) {
-        return updated.map((f, i) => ({
-          ...f,
-          is_primary_key: i === index,
-          is_indexed: i === index ? true : f.is_indexed,
-        }))
-      }
-      return updated
-    })
-  }
-
-  // Categorize fields
-  const indexedFields = fields.filter(f => f.is_indexed || f.is_primary_key)
-  const jsonOnlyFields = fields.filter(f => !f.is_indexed && !f.is_primary_key)
-
-  const previewJson = useMemo(() => buildPreview(fields), [fields])
+  const [activeTab, setActiveTab] = useState<string | null>('editor')
 
   const handleSubmit = async () => {
     setError(null)
 
-    const name = toPascalCase(modelName)
-    if (!name) {
-      setError('Model name is required')
-      return
-    }
-
-    const hasPK = fields.some(f => f.is_primary_key)
-    if (!hasPK) {
-      setError('At least one field must be marked as Primary Key')
-      return
-    }
-
-    const emptyNames = fields.filter(f => !f.name.trim())
-    if (emptyNames.length > 0) {
-      setError('All fields must have a name')
+    if (!script.trim()) {
+      setError('Script is empty')
       return
     }
 
     try {
       setSubmitting(true)
-      await registerModel({
-        name,
-        table_name: tableName || toSnakeCase(name) + 's',
-        description,
-        fields,
-      })
-      onCreated(name)
+      const result = await registerModelScript(script)
+      onCreated(result.name)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -333,11 +723,17 @@ export default function ModelBuilder({ onCreated, registerModel }: ModelBuilderP
 
   return (
     <Stack gap="md">
-      <Title order={3}>Create New Model</Title>
-      <Text size="sm" c="dimmed">
-        Define a complex object. Primary key and indexed fields become database columns for fast queries.
-        Everything else is stored as JSON -- supporting arrays, nested objects, any structure.
-      </Text>
+      <Group justify="space-between" align="center">
+        <Group gap="xs">
+          <ThemeIcon size="lg" variant="light" color="teal"><IconCode size={22} /></ThemeIcon>
+          <div>
+            <Title order={3}>Create New Model</Title>
+            <Text size="xs" c="dimmed">
+              Define a PersistedObject class → get a DB table + full CRUD API + auto UI
+            </Text>
+          </div>
+        </Group>
+      </Group>
 
       {error && (
         <Alert color="red" variant="light" withCloseButton onClose={() => setError(null)}>
@@ -345,144 +741,149 @@ export default function ModelBuilder({ onCreated, registerModel }: ModelBuilderP
         </Alert>
       )}
 
-      {/* Model info */}
-      <SimpleGrid cols={{ base: 1, sm: 2 }}>
-        <TextInput
-          label="Model Name"
-          placeholder="e.g. Product"
-          description="PascalCase class name"
-          value={modelName}
-          onChange={e => handleNameChange(e.currentTarget.value)}
-          required
-        />
-        <TextInput
-          label="Table Name"
-          placeholder="e.g. products"
-          description="Database table name (snake_case)"
-          value={tableName}
-          onChange={e => setTableName(e.currentTarget.value)}
-          required
-        />
-      </SimpleGrid>
+      <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs.List>
+          <Tabs.Tab value="editor" leftSection={<IconCode size={16} />}>
+            Script Editor
+          </Tabs.Tab>
+          <Tabs.Tab value="templates" leftSection={<IconTemplate size={16} />}>
+            Templates
+          </Tabs.Tab>
+          <Tabs.Tab value="help" leftSection={<IconHelp size={16} />}>
+            Help & Reference
+          </Tabs.Tab>
+        </Tabs.List>
 
-      <Textarea
-        label="Description"
-        placeholder="Describe what this model represents..."
-        value={description}
-        onChange={e => setDescription(e.currentTarget.value)}
-        autosize
-        minRows={2}
-      />
-
-      <Divider />
-
-      {/* DB Column fields (PK + indexed) */}
-      <div>
-        <Group gap="xs" mb="xs">
-          <ThemeIcon size="sm" variant="light" color="blue"><IconDatabase size={16} /></ThemeIcon>
-          <Text fw={600} size="sm">DB Column Fields</Text>
-          <Text size="xs" c="dimmed">-- stored as actual database columns for fast queries & filtering</Text>
-        </Group>
-        {indexedFields.length === 0 && (
-          <Text size="xs" c="dimmed" fs="italic" mb="xs">
-            Mark fields as "Primary Key" or "Index" to add them here.
-          </Text>
-        )}
-        <Stack gap="xs">
-          {fields.map((field, i) =>
-            (field.is_indexed || field.is_primary_key)
-              ? <FieldCard key={i} field={field} index={i} onUpdate={u => updateField(i, u)} onRemove={() => removeField(i)} />
-              : null
-          )}
-        </Stack>
-      </div>
-
-      {/* JSON-only fields */}
-      <div>
-        <Group gap="xs" mb="xs">
-          <ThemeIcon size="sm" variant="light" color="grape"><IconBraces size={16} /></ThemeIcon>
-          <Text fw={600} size="sm">JSON Data Fields</Text>
-          <Text size="xs" c="dimmed">-- stored inside the JSON column (supports complex types)</Text>
-        </Group>
-        {jsonOnlyFields.length === 0 && (
-          <Text size="xs" c="dimmed" fs="italic" mb="xs">
-            Add fields and leave "Index" unchecked to store them as JSON data.
-          </Text>
-        )}
-        <Stack gap="xs">
-          {fields.map((field, i) =>
-            (!field.is_indexed && !field.is_primary_key)
-              ? <FieldCard key={i} field={field} index={i} onUpdate={u => updateField(i, u)} onRemove={() => removeField(i)} />
-              : null
-          )}
-        </Stack>
-      </div>
-
-      {/* Add field buttons */}
-      <Group gap="xs">
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" onClick={() => addField('string')}>
-          + String
-        </Button>
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" color="cyan" onClick={() => addField('integer')}>
-          + Integer
-        </Button>
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" color="orange" onClick={() => addField('boolean')}>
-          + Boolean
-        </Button>
-
-        <Divider orientation="vertical" />
-
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" color="grape" onClick={() => addField('string_array')}>
-          + String[]
-        </Button>
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" color="violet" onClick={() => addField('object')}>
-          + Object
-        </Button>
-        <Button leftSection={<IconPlus size={14} />} variant="light" size="xs" color="pink" onClick={() => addField('object_array')}>
-          + Object[]
-        </Button>
-      </Group>
-
-      <Divider />
-
-      {/* JSON Preview */}
-      <div>
-        <Group gap="xs" mb="xs" style={{ cursor: 'pointer' }} onClick={togglePreview}>
-          <Text fw={600} size="sm">Object Preview</Text>
-          {previewOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-        </Group>
-        <Collapse in={previewOpen}>
-          <Paper withBorder p="sm" bg="var(--mantine-color-dark-8)" radius="md"
-            style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 1.5 }}
-          >
-            <Group justify="space-between" mb="xs">
-              <Group gap="xs">
-                <Badge size="xs" color="blue" variant="filled">DB Columns</Badge>
-                {indexedFields.map(f => (
-                  <Badge key={f.name} size="xs" variant="light" color={f.is_primary_key ? 'yellow' : 'blue'}>
-                    {f.name}
-                  </Badge>
-                ))}
+        {/* ==================== Script Editor Tab ==================== */}
+        <Tabs.Panel value="editor" pt="md">
+          <Stack gap="md">
+            <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+              <Group
+                px="md"
+                py={6}
+                justify="space-between"
+                style={{
+                  borderBottom: '1px solid var(--mantine-color-dark-4)',
+                  backgroundColor: 'var(--mantine-color-dark-8)',
+                }}
+              >
+                <Group gap="xs">
+                  <Badge size="xs" variant="light" color="teal">Python</Badge>
+                  <Text size="xs" c="dimmed">PersistedObject class definition</Text>
+                </Group>
+                <CopyButton value={script}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? 'Copied!' : 'Copy script'}>
+                      <ActionIcon variant="subtle" size="sm" onClick={copy} color={copied ? 'teal' : 'gray'}>
+                        {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
               </Group>
-              <Badge size="xs" color="grape" variant="filled">+ JSON</Badge>
-            </Group>
-            <Code block style={{ whiteSpace: 'pre', fontSize: 13 }}>
-              {previewJson}
-            </Code>
-          </Paper>
-        </Collapse>
-      </div>
+              <textarea
+                value={script}
+                onChange={e => setScript(e.target.value)}
+                spellCheck={false}
+                style={{
+                  width: '100%',
+                  minHeight: 450,
+                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  padding: 16,
+                  border: 'none',
+                  backgroundColor: 'var(--mantine-color-dark-7)',
+                  color: 'var(--mantine-color-text)',
+                  resize: 'vertical',
+                  tabSize: 4,
+                  outline: 'none',
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault()
+                    const target = e.currentTarget
+                    const start = target.selectionStart
+                    const end = target.selectionEnd
+                    const val = target.value
+                    target.value = val.substring(0, start) + '    ' + val.substring(end)
+                    target.selectionStart = target.selectionEnd = start + 4
+                    setScript(target.value)
+                  }
+                }}
+              />
+            </Paper>
 
-      <Group justify="flex-end">
-        <Button
-          leftSection={<IconDeviceFloppy size={18} />}
-          onClick={handleSubmit}
-          loading={submitting}
-          size="md"
-        >
-          Create Model
-        </Button>
-      </Group>
+            <Group justify="flex-end">
+              <Button
+                leftSection={<IconPlayerPlay size={18} />}
+                onClick={handleSubmit}
+                loading={submitting}
+                size="md"
+              >
+                Create Model
+              </Button>
+            </Group>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* ==================== Templates Tab ==================== */}
+        <Tabs.Panel value="templates" pt="md">
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+              Click a template to load it into the editor. Each template demonstrates different PersistedObject features.
+            </Text>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              {TEMPLATES.map((t) => (
+                <Card
+                  key={t.name}
+                  withBorder
+                  padding="sm"
+                  radius="md"
+                  style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
+                  onClick={() => {
+                    setScript(t.script)
+                    setActiveTab('editor')
+                  }}
+                >
+                  <Group gap="xs" mb={4} justify="space-between">
+                    <Group gap="xs">
+                      <Badge size="sm" variant="light" color={t.color}>{t.name}</Badge>
+                    </Group>
+                    <Tooltip label="Load into editor">
+                      <ActionIcon variant="subtle" size="sm" color={t.color}>
+                        <IconCode size={14} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                  <Text size="xs" c="dimmed">{t.description}</Text>
+                  <Box
+                    mt="xs"
+                    p="xs"
+                    style={{
+                      borderRadius: 6,
+                      backgroundColor: 'var(--mantine-color-dark-8)',
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      lineHeight: 1.4,
+                      maxHeight: 80,
+                      overflow: 'hidden',
+                      color: 'var(--mantine-color-dimmed)',
+                    }}
+                  >
+                    {t.script.split('\n').slice(0, 5).join('\n')}...
+                  </Box>
+                </Card>
+              ))}
+            </SimpleGrid>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* ==================== Help Tab ==================== */}
+        <Tabs.Panel value="help" pt="md">
+          <HelpPanel />
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   )
 }
